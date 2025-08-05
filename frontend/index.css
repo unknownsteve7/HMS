@@ -1,0 +1,15 @@
+/* Base styles for the app */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
