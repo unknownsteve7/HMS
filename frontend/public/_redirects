@@ -1,0 +1,5 @@
+# Handle all client-side routes
+/* /index.html 200
+
+# Special redirect for payment URLs
+/payment/* /index.html 200
