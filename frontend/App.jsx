@@ -1,42 +1,44 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
-import { AppProvider, useAppContext } from './context/AppContext';
-import { ToastProvider } from './context/ToastContext';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import PaymentStatus from './components/payu/PaymentStatus';
-
+import React from "react";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { AppProvider, useAppContext } from "./context/AppContext";
+import { ToastProvider } from "./context/ToastContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import PaymentStatus from "./components/payu/PaymentStatus";
+import LoadingScreen from "./components/ui/LoadingScreen";
 
 // Layouts
-import Sidebar from './components/layout/Sidebar';
-import Header from './components/layout/Header';
-import PageWrapper from './components/layout/PageWrapper';
-import StudentLayout from './components/student/StudentLayout';
+import Sidebar from "./components/layout/Sidebar";
+import Header from "./components/layout/Header";
+import PageWrapper from "./components/layout/PageWrapper";
+import StudentLayout from "./components/student/StudentLayout";
 
 // Auth Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 // Admin Pages
-import Dashboard from './pages/Dashboard';
-import StudentManagement from './pages/StudentManagement';
-import RoomManagement from './pages/RoomManagement';
-import BookingManagement from './pages/BookingManagement';
-import PaymentsManagement from './pages/PaymentsManagement';
-import NotFound from './pages/NotFound';
-import Profile from './pages/Profile'; // Shared profile component
+import Dashboard from "./pages/Dashboard";
+import StudentManagement from "./pages/StudentManagement";
+import RoomManagement from "./pages/RoomManagement";
+import BookingManagement from "./pages/BookingManagement";
+import PaymentsManagement from "./pages/PaymentsManagement";
+import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile"; // Shared profile component
 
 // Student Pages
-import StudentDashboard from './pages/student/Dashboard';
-import BrowseRooms from './pages/student/BrowseRooms';
-import BookRoom from './pages/student/BookRoom';
-import MyBookings from './pages/student/MyBookings';
-import PaymentHistory from './pages/student/PaymentHistory';
+import StudentDashboard from "./pages/student/Dashboard";
+import BrowseRooms from "./pages/student/BrowseRooms";
+import BookRoom from "./pages/student/BookRoom";
+import MyBookings from "./pages/student/MyBookings";
+import PaymentHistory from "./pages/student/PaymentHistory";
 
 // Simple test component to verify rendering
 const TestComponent = () => (
   <div className="min-h-screen bg-base-bg flex items-center justify-center">
     <div className="text-center p-8">
-      <h1 className="text-4xl font-bold text-primary-purple mb-4">Sanskrithi Hostel Management</h1>
+      <h1 className="text-4xl font-bold text-primary-purple mb-4">
+        Sanskrithi Hostel Management
+      </h1>
       <p className="text-lg text-text-medium mb-6">Application is loading...</p>
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-purple mx-auto"></div>
     </div>
@@ -44,14 +46,14 @@ const TestComponent = () => (
 );
 
 // Loading Component
-const LoadingScreen = () => (
-  <div className="flex items-center justify-center min-h-screen bg-base-bg">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-      <p className="mt-4 text-gray-600">Loading...</p>
-    </div>
-  </div>
-);
+// const LoadingScreen = () => (
+//   <div className="flex items-center justify-center min-h-screen bg-base-bg">
+//     <div className="text-center">
+//       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+//       <p className="mt-4 text-gray-600">Loading...</p>
+//     </div>
+//   </div>
+// );
 
 const AdminPortal = () => (
   <div className="flex h-screen font-sans bg-base-bg relative">
@@ -68,11 +70,11 @@ const AdminPortal = () => (
 );
 
 const AppRoutes = () => {
-  console.log('🗺️ AppRoutes component rendering...');
+  console.log("🗺️ AppRoutes component rendering...");
 
   // Debug - log current location
   const locationFromWindow = window.location.pathname;
-  console.log('🌍 Current URL path:', locationFromWindow);
+  console.log("🌍 Current URL path:", locationFromWindow);
 
   try {
     return (
@@ -80,7 +82,7 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+        <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
           <Route path="/student" element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="dashboard" element={<StudentDashboard />} />
@@ -93,17 +95,20 @@ const AppRoutes = () => {
         </Route>
 
         {/* PayU Payment Callback Routes - Accessible without authentication */}
-        <Route path="/payment/success" element={
-          <PaymentStatus type="success" />
-        } />
-        <Route path="/payment/failure" element={
-          <PaymentStatus type="failure" />
-        } />
-        <Route path="/payment/cancel" element={
-          <PaymentStatus type="failure" />
-        } />
+        <Route
+          path="/payment/success"
+          element={<PaymentStatus type="success" />}
+        />
+        <Route
+          path="/payment/failure"
+          element={<PaymentStatus type="failure" />}
+        />
+        <Route
+          path="/payment/cancel"
+          element={<PaymentStatus type="failure" />}
+        />
 
-        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/" element={<AdminPortal />}>
             <Route index element={<Dashboard />} />
             <Route path="students" element={<StudentManagement />} />
@@ -118,12 +123,16 @@ const AppRoutes = () => {
       </Routes>
     );
   } catch (error) {
-    console.error('❌ Error in AppRoutes component:', error);
+    console.error("❌ Error in AppRoutes component:", error);
     return (
       <div className="min-h-screen bg-blue-100 flex items-center justify-center">
         <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-blue-800 mb-4">Routing Error</h1>
-          <p className="text-blue-600 mb-4">Error setting up application routes.</p>
+          <h1 className="text-2xl font-bold text-blue-800 mb-4">
+            Routing Error
+          </h1>
+          <p className="text-blue-600 mb-4">
+            Error setting up application routes.
+          </p>
           <pre className="text-sm text-blue-500 bg-blue-50 p-4 rounded overflow-auto max-w-md">
             {error.message}
           </pre>
@@ -135,39 +144,40 @@ const AppRoutes = () => {
 
 // Simplified AppContent to debug rendering issues
 const AppContent = () => {
-  console.log('🔍 AppContent component rendering...');
+  console.log("🔍 AppContent component rendering...");
 
   try {
     const { isInitializing, isAuthenticated, userRole } = useAppContext();
-    console.log('📊 AppContext state:', { isInitializing, isAuthenticated, userRole });
+    console.log("📊 AppContext state:", {
+      isInitializing,
+      isAuthenticated,
+      userRole,
+    });
 
     // Check if the browser has reloaded but we're still trying to initialize
-    const browserHasToken = localStorage.getItem('authToken') !== null;
-    console.log('🔐 Browser has stored token:', browserHasToken);
+    const browserHasToken = localStorage.getItem("authToken") !== null;
+    console.log("🔐 Browser has stored token:", browserHasToken);
 
     // Show loading state
     if (isInitializing) {
-      console.log('⏳ Showing loading state...');
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-base-bg">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-purple mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      );
+      console.log("⏳ Showing loading state...");
+      return <LoadingScreen />;
     }
 
     // Show the actual app routes
-    console.log('🚀 Rendering app routes...');
+    console.log("🚀 Rendering app routes...");
     return <AppRoutes />;
   } catch (error) {
-    console.error('❌ Error in AppContent component:', error);
+    console.error("❌ Error in AppContent component:", error);
     return (
       <div className="min-h-screen bg-yellow-100 flex items-center justify-center">
         <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-yellow-800 mb-4">Context Error</h1>
-          <p className="text-yellow-600 mb-4">Error accessing application context.</p>
+          <h1 className="text-2xl font-bold text-yellow-800 mb-4">
+            Context Error
+          </h1>
+          <p className="text-yellow-600 mb-4">
+            Error accessing application context.
+          </p>
           <pre className="text-sm text-yellow-500 bg-yellow-50 p-4 rounded overflow-auto max-w-md">
             {error.message}
           </pre>
@@ -178,10 +188,10 @@ const AppContent = () => {
 };
 
 // Import our ErrorBoundary
-import ErrorBoundary from './components/ui/ErrorBoundary';
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 
 const App = () => {
-  console.log('🚀 App component mounted');
+  console.log("🚀 App component mounted");
 
   try {
     return (
@@ -196,12 +206,16 @@ const App = () => {
       </ErrorBoundary>
     );
   } catch (error) {
-    console.error('❌ Error in App component:', error);
+    console.error("❌ Error in App component:", error);
     return (
       <div className="min-h-screen bg-red-100 flex items-center justify-center">
         <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-red-800 mb-4">Application Error</h1>
-          <p className="text-red-600 mb-4">Something went wrong while loading the application.</p>
+          <h1 className="text-2xl font-bold text-red-800 mb-4">
+            Application Error
+          </h1>
+          <p className="text-red-600 mb-4">
+            Something went wrong while loading the application.
+          </p>
           <pre className="text-sm text-red-500 bg-red-50 p-4 rounded overflow-auto max-w-md">
             {error.message}
           </pre>

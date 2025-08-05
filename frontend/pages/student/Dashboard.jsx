@@ -48,47 +48,8 @@ const StudentDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card>
-            <h2 className="text-xl font-bold text-text-dark mb-4">Current Booking</h2>
-            {activeBooking ? (
-              (() => {
-                const room = getRoom(activeBooking.roomId || activeBooking.room_id);
-                return (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-medium">Room</span>
-                      <span className="font-semibold text-text-dark">
-                        {room ? `${room.room_number || room.roomNumber} / Cot ${activeBooking.cot_number || activeBooking.cotNumber}` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-medium">Check-in</span>
-                      <span className="font-semibold text-text-dark">{new Date(activeBooking.check_in_date || activeBooking.checkInDate).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-medium">Check-out</span>
-                      <span className="font-semibold text-text-dark">{new Date(activeBooking.check_out_date || activeBooking.checkOutDate).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-medium">Status</span>
-                      <StatusTag status={activeBooking.status} />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-text-medium">Balance Due</span>
-                      <span className="font-semibold text-accent-orange">₹{(activeBooking.balance || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : (
-              <p className="text-text-medium text-center py-8">You have no active bookings.</p>
-            )}
-          </Card>
-        </div>
-
-        <div className="space-y-8">
-          <Card>
+     
+          <Card className='col-span-1'>
             <h2 className="text-xl font-bold text-text-dark mb-4">Recent Bookings</h2>
             <div className="space-y-4">
               {recentBookings.length > 0 ? recentBookings.map(b => {
@@ -122,7 +83,7 @@ const StudentDashboard = () => {
               )) : <p className="text-text-medium text-sm">No recent payments.</p>}
             </div>
           </Card>
-        </div>
+        
       </div>
     </div>
   );

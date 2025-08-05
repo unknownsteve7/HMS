@@ -119,8 +119,9 @@ const FilterSidebar = ({ filters, setFilters }) => {
                         </div>
                     </div>
 
-                    <div>
+                    {/* <div>
                         <h3 className="font-semibold mb-3 flex items-center gap-1"><Fan size={16} /> Facilities</h3>
+                       
                         <div className="space-y-2">
                             {facilities.map(facility => (
                                 <Checkbox
@@ -132,7 +133,8 @@ const FilterSidebar = ({ filters, setFilters }) => {
                                 />
                             ))}
                         </div>
-                    </div>
+                        
+                    </div> */}
 
                     <div>
                         <h3 className="font-semibold mb-3 flex items-center gap-1"><span className="font-bold">₹</span> Price Range (₹)</h3>
