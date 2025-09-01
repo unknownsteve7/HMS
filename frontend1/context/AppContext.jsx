@@ -1,4 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
+
 import {
   login as apiLogin,
   getAllRooms,
@@ -16,7 +25,6 @@ import {
   getStudentPayments,
 } from '../apiService';
 
-
 const AppContext = createContext(undefined);
 
 export const AppProvider = ({ children }) => {
@@ -31,7 +39,8 @@ export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState({});
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const logout = () => {
+  // ---------- Auth restore on mount ----------
+  const logout = useCallback(() => {
     setIsAuthenticated(false);
     setUserRole(null);
     setCurrentUser(null);
@@ -39,19 +48,13 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem('currentUser');
-  };
+  }, []);
 
   useEffect(() => {
     const restoreAuthState = async () => {
       try {
-        console.log('🔄 Restoring auth state...');
         const storedToken = localStorage.getItem('authToken');
         const storedRole = localStorage.getItem('userRole');
-
-        console.log('📦 Stored auth data:', {
-          hasToken: !!storedToken,
-          role: storedRole
-        });
 
         if (!storedToken || !storedRole) {
           setIsInitializing(false);
@@ -80,7 +83,7 @@ export const AppProvider = ({ children }) => {
             localStorage.setItem('currentUser', JSON.stringify(userData));
           }
         } catch (error) {
-          if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
+          if (error?.message && (error.message.includes('401') || error.message.includes('403'))) {
             logout();
           }
         }
@@ -90,18 +93,21 @@ export const AppProvider = ({ children }) => {
       }
     };
     restoreAuthState();
-  }, []);
+  }, [logout]);
 
+  // ---------- Data fetchers (memoized) ----------
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, rooms: true }));
       const token = authToken || localStorage.getItem('authToken');
       const roomsData = await getAllRooms(token);
-      let processedRooms = Array.isArray(roomsData) ? roomsData : (roomsData && (roomsData.rooms || roomsData.data)) || [];
+      const processedRooms = Array.isArray(roomsData)
+        ? roomsData
+        : (roomsData && (roomsData.rooms || roomsData.data)) || [];
       setRooms(processedRooms);
       return processedRooms;
     } catch (error) {
-      if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+      if (error?.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
         logout();
       }
       setRooms([]);
@@ -109,26 +115,42 @@ export const AppProvider = ({ children }) => {
     } finally {
       setLoading(prev => ({ ...prev, rooms: false }));
     }
-  }, [authToken]);
+  }, [authToken, logout]);
+
+  // In-flight guard to prevent duplicate/looped calls
+  const studentsLoadingRef = useRef(false);
 
   const fetchStudents = useCallback(async () => {
+    if (studentsLoadingRef.current) return;
+    studentsLoadingRef.current = true;
     try {
       setLoading(prev => ({ ...prev, students: true }));
       const token = authToken || localStorage.getItem('authToken');
       const studentsData = await getAllStudents(token);
-      let processedStudents = Array.isArray(studentsData) ? studentsData : (studentsData && (studentsData.students || studentsData.data)) || [];
-      setStudents(processedStudents);
+      const processedStudents = Array.isArray(studentsData)
+        ? studentsData
+        : (studentsData && (studentsData.students || studentsData.data)) || [];
+
+      setStudents(prev => {
+        // shallow identity guard to avoid unnecessary re-renders
+        if (prev.length === processedStudents.length && prev.every((p, i) => p === processedStudents[i])) {
+          return prev;
+        }
+        return processedStudents;
+      });
+
       return processedStudents;
     } catch (error) {
-      if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+      if (error?.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
         logout();
       }
       setStudents([]);
       throw error;
     } finally {
       setLoading(prev => ({ ...prev, students: false }));
+      studentsLoadingRef.current = false;
     }
-  }, [authToken]);
+  }, [authToken, logout]);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -141,7 +163,9 @@ export const AppProvider = ({ children }) => {
       } else {
         bookingsData = await getStudentBookings(token);
       }
-      const processedBookings = Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || [];
+      const processedBookings = Array.isArray(bookingsData)
+        ? bookingsData
+        : bookingsData?.bookings || [];
       setBookings(processedBookings);
       return processedBookings;
     } catch (error) {
@@ -164,7 +188,9 @@ export const AppProvider = ({ children }) => {
       } else {
         paymentsData = await getStudentPayments(token);
       }
-      const processedPayments = Array.isArray(paymentsData) ? paymentsData : paymentsData.payments || [];
+      const processedPayments = Array.isArray(paymentsData)
+        ? paymentsData
+        : paymentsData?.payments || [];
       setPayments(processedPayments);
       return processedPayments;
     } catch (error) {
@@ -176,273 +202,237 @@ export const AppProvider = ({ children }) => {
     }
   }, [authToken, userRole]);
 
-  const fetchUserProfile = useCallback(async (providedToken = null) => {
-    try {
-      setLoading(prev => ({ ...prev, user: true }));
-      const token = providedToken || authToken || localStorage.getItem('authToken');
-      const profileData = await getCurrentUserProfile(token);
-      setCurrentUser(profileData);
-      return profileData;
-    } catch (error) {
-      if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-        logout();
+  const fetchUserProfile = useCallback(
+    async (providedToken = null) => {
+      try {
+        setLoading(prev => ({ ...prev, user: true }));
+        const token = providedToken || authToken || localStorage.getItem('authToken');
+        const profileData = await getCurrentUserProfile(token);
+        setCurrentUser(profileData);
+        return profileData;
+      } catch (error) {
+        if (error?.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
+          logout();
+        }
+        throw error;
+      } finally {
+        setLoading(prev => ({ ...prev, user: false }));
       }
-      throw error;
-    } finally {
-      setLoading(prev => ({ ...prev, user: false }));
-    }
-  }, [authToken]);
+    },
+    [authToken, logout]
+  );
 
+  // ---------- Auto-fetch after auth ----------
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchRooms().catch(err => console.error('Auto-fetch rooms failed:', err));
-      fetchBookings().catch(err => console.error('Auto-fetch bookings failed:', err));
-      fetchPayments().catch(err => console.error('Auto-fetch payments failed:', err));
-      if (userRole === 'admin') {
-        fetchStudents().catch(err => console.error('Auto-fetch students failed:', err));
-      }
+    if (!isAuthenticated) return;
+    fetchRooms().catch(err => console.error('Auto-fetch rooms failed:', err));
+    fetchBookings().catch(err => console.error('Auto-fetch bookings failed:', err));
+    fetchPayments().catch(err => console.error('Auto-fetch payments failed:', err));
+    if (userRole === 'admin') {
+      fetchStudents().catch(err => console.error('Auto-fetch students failed:', err));
     }
   }, [isAuthenticated, userRole, fetchRooms, fetchBookings, fetchPayments, fetchStudents]);
 
-  const login = async (credentials, role) => {
-    setLoading(prev => ({ ...prev, login: true }));
-    try {
-      const response = await apiLogin(credentials.email, credentials.pass, role);
-      const token = response.token || response.access_token || response.authToken || response.auth_token;
+  // ---------- Actions (memoized) ----------
+  const login = useCallback(
+    async (credentials, role) => {
+      setLoading(prev => ({ ...prev, login: true }));
+      try {
+        const response = await apiLogin(credentials.email, credentials.pass, role);
+        const token =
+          response.token || response.access_token || response.authToken || response.auth_token;
 
-      if (token) {
-        setAuthToken(token);
-        localStorage.setItem('authToken', token);
-      } else {
-        throw new Error('No authentication token received from server');
-      }
-
-      setIsAuthenticated(true);
-      setUserRole(role);
-      localStorage.setItem('userRole', role);
-
-      const userData = role === 'admin' ? (response.admin || response.user) : (response.student || response.user);
-      if (!userData) {
-        throw new Error(`No user data received for ${role} login`);
-      }
-      setCurrentUser(userData);
-      localStorage.setItem('currentUser', JSON.stringify(userData));
-
-      await fetchUserProfile(token);
-      setIsInitializing(false);
-      return response;
-    } catch (error) {
-      console.error('Login failed:', error);
-      setLoading(prev => ({ ...prev, login: false }));
-      throw new Error(error.message || 'Login failed. Please try again.');
-    } finally {
-      setLoading(prev => ({ ...prev, login: false }));
-    }
-  };
-
-  const registerStudent = async (studentData) => {
-    try {
-      console.log('👤 AppContext: registerStudent called with data:', studentData);
-
-      // Student registration doesn't require authentication - it's for new users
-      console.log('🔐 Registering new student (no auth token required)');
-      console.log('🚀 Calling apiRegisterStudent with:', studentData);
-
-      const response = await apiRegisterStudent(studentData, null); // No auth token for registration
-      console.log('✅ Student registered via API:', response);
-
-      // Don't refresh students list since this is a public registration
-      // Only admins would need to see the updated student list
-
-      return response;
-    } catch (error) {
-      console.error('❌ Failed to register student:', error);
-      throw error;
-    }
-  };
-
-  const deleteStudent = async (studentId) => {
-    try {
-      console.log('🗑️ AppContext: deleteStudent called for ID:', studentId);
-
-      // If authenticated, use API
-      if (authToken) {
-        console.log('🔐 Authentication token found, using API for student deletion');
-        console.log('🚀 Calling apiDeleteStudent with ID:', studentId);
-        console.log('🔑 Auth token:', authToken && typeof authToken === 'string' ? `${authToken.substring(0, 10)}...` : 'null');
-
-        const response = await apiDeleteStudent(studentId, authToken);
-        console.log('✅ Student deleted via API:', response);
-
-        // Refresh students list after deletion
-        console.log('🔄 Refreshing students list...');
-        await fetchStudents();
-
-        return response;
-      } else {
-        console.log('❌ No authentication token - cannot delete student');
-        throw new Error('Authentication required to delete students');
-      }
-    } catch (error) {
-      console.error('❌ Failed to delete student:', error);
-      throw error;
-    }
-  };
-
-  const updateStudent = async (studentId, studentData) => {
-    try {
-      console.log('✏️ AppContext: updateStudent called for ID:', studentId);
-      console.log('📝 Student data:', studentData);
-
-      // If authenticated, use API
-      if (authToken) {
-        console.log('🔐 Authentication token found, using API for student update');
-        console.log('🚀 Calling apiUpdateStudent with ID:', studentId);
-        console.log('🔑 Auth token:', authToken && typeof authToken === 'string' ? `${authToken.substring(0, 10)}...` : 'null');
-
-        const response = await apiUpdateStudent(studentId, studentData, authToken);
-        console.log('✅ Student updated via API:', response);
-
-        // Refresh students list after update
-        console.log('🔄 Refreshing students list...');
-        await fetchStudents();
-
-        return response;
-      } else {
-        console.log('❌ No authentication token - cannot update student');
-        throw new Error('Authentication required to update students');
-      }
-    } catch (error) {
-      console.error('❌ Failed to update student:', error);
-      throw error;
-    }
-  };
-
-  const addRoom = async (roomData) => {
-    try {
-      console.log('🏠 AppContext: addRoom called with data:', roomData);
-
-      // Generate coordinates for cots based on totalCots and layout
-      const totalCots = roomData.totalCots;
-      const layoutCols = roomData.layoutCols || 6;
-      const layoutRows = roomData.layoutRows || Math.ceil(totalCots / layoutCols);
-
-      console.log('📐 Layout calculations:', { totalCots, layoutCols, layoutRows });
-
-      // Use custom cots if provided, otherwise generate default coordinates
-      let cots = [];
-      if (roomData.customCots && roomData.customCots.length > 0) {
-        console.log('✅ Using custom cots:', roomData.customCots);
-        cots = roomData.customCots;
-      } else {
-        console.log('🔄 Generating default cot coordinates...');
-        // Generate default cot coordinates
-        for (let i = 0; i < totalCots; i++) {
-          const x = i % layoutCols;
-          const y = Math.floor(i / layoutCols);
-          cots.push({
-            number: i + 1,
-            x: x,
-            y: y,
-            status: 'Available'
-          });
+        if (token) {
+          setAuthToken(token);
+          localStorage.setItem('authToken', token);
+        } else {
+          throw new Error('No authentication token received from server');
         }
-        console.log('🛏️ Generated default cots:', cots);
+
+        setIsAuthenticated(true);
+        setUserRole(role);
+        localStorage.setItem('userRole', role);
+
+        const userData = role === 'admin' ? (response.admin || response.user) : (response.student || response.user);
+        if (!userData) {
+          throw new Error(`No user data received for ${role} login`);
+        }
+        setCurrentUser(userData);
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+
+        await fetchUserProfile(token);
+        setIsInitializing(false);
+        return response;
+      } catch (error) {
+        console.error('Login failed:', error);
+        setLoading(prev => ({ ...prev, login: false }));
+        throw new Error(error.message || 'Login failed. Please try again.');
+      } finally {
+        setLoading(prev => ({ ...prev, login: false }));
       }
+    },
+    [fetchUserProfile]
+  );
 
-      const roomDataWithCoordinates = {
-        ...roomData,
-        layoutCols,
-        layoutRows,
-        cots
-      };
+  const registerStudent = useCallback(async (studentData) => {
+    try {
+      const response = await apiRegisterStudent(studentData, null); // public registration
+      return response;
+    } catch (error) {
+      console.error('Failed to register student:', error);
+      throw error;
+    }
+  }, []);
 
-      console.log('📦 Final room data with coordinates:', roomDataWithCoordinates);
+  const deleteStudent = useCallback(
+    async (studentId) => {
+      try {
+        if (!authToken) throw new Error('Authentication required to delete students');
+        const response = await apiDeleteStudent(studentId, authToken);
+        await fetchStudents();
+        return response;
+      } catch (error) {
+        console.error('Failed to delete student:', error);
+        throw error;
+      }
+    },
+    [authToken, fetchStudents]
+  );
 
-      // If authenticated, use API
-      if (authToken) {
-        console.log('🔐 Authentication token found, using API');
-        console.log('🚀 Calling apiCreateRoom with:', roomDataWithCoordinates);
-        console.log('🔑 Auth token:', authToken && typeof authToken === 'string' ? `${authToken.substring(0, 10)}...` : 'null');
+  const updateStudent = useCallback(
+    async (studentId, studentData) => {
+      try {
+        if (!authToken) throw new Error('Authentication required to update students');
+        const response = await apiUpdateStudent(studentId, studentData, authToken);
+        await fetchStudents();
+        return response;
+      } catch (error) {
+        console.error('Failed to update student:', error);
+        throw error;
+      }
+    },
+    [authToken, fetchStudents]
+  );
 
+  const addRoom = useCallback(
+    async (roomData) => {
+      try {
+        // generate cot coordinates if needed
+        const totalCots = roomData.totalCots;
+        const layoutCols = roomData.layoutCols || 6;
+        const layoutRows = roomData.layoutRows || Math.ceil(totalCots / layoutCols);
+
+        let cots = [];
+        if (roomData.customCots && roomData.customCots.length > 0) {
+          cots = roomData.customCots;
+        } else {
+          for (let i = 0; i < totalCots; i++) {
+            const x = i % layoutCols;
+            const y = Math.floor(i / layoutCols);
+            cots.push({ number: i + 1, x, y, status: 'Available' });
+          }
+        }
+
+        const roomDataWithCoordinates = { ...roomData, layoutCols, layoutRows, cots };
+
+        if (!authToken) throw new Error('Authentication required to create rooms');
         const response = await apiCreateRoom(roomDataWithCoordinates, authToken);
-        console.log('✅ Room created via API:', response);
-
-        // Refresh rooms list after creation
-        console.log('🔄 Refreshing rooms list...');
         await fetchRooms();
         return response;
-      } else {
-        console.log('❌ No authentication token - cannot create room');
-        throw new Error('Authentication required to create rooms');
+      } catch (error) {
+        console.error('Failed to create room:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Failed to create room:', error);
-      throw error;
-    }
-  };
+    },
+    [authToken, fetchRooms]
+  );
 
-  const createBooking = async (bookingData) => {
-    try {
-      console.log('📦 AppContext: createBooking called with data:', bookingData);
-      if (!authToken) {
-        throw new Error('Authentication required to create a booking.');
+  const createBooking = useCallback(
+    async (bookingData) => {
+      try {
+        if (!authToken) throw new Error('Authentication required to create a booking.');
+        const newBookingResponse = await createStudentBooking(bookingData, authToken);
+        await fetchBookings();
+        return newBookingResponse;
+      } catch (error) {
+        console.error('Failed to create booking:', error);
+        throw error;
       }
-      const newBookingResponse = await createStudentBooking(bookingData, authToken);
-      console.log('✅ Booking created via API:', newBookingResponse);
+    },
+    [authToken, fetchBookings]
+  );
 
-      // After creating a booking, always refetch the full list from the server.
-      // This ensures data consistency and prevents crashes from partial data.
-      console.log('🔄 Refreshing bookings list after creation...');
-      await fetchBookings();
+  const addPayment = useCallback(
+    async (paymentData) => {
+      try {
+        setLoading(prev => ({ ...prev, payments: true }));
+        const token = authToken || localStorage.getItem('authToken');
+        const newPayment = await createPayment(paymentData, token);
+        await fetchPayments();
+        return newPayment;
+      } catch (error) {
+        console.error('Failed to add payment:', error);
+        throw error;
+      } finally {
+        setLoading(prev => ({ ...prev, payments: false }));
+      }
+    },
+    [authToken, fetchPayments]
+  );
 
-      return newBookingResponse;
-    } catch (error) {
-      console.error('❌ Failed to create booking:', error);
-      throw error;
-    }
-  };
-
-  const addPayment = async (paymentData) => {
-    try {
-      setLoading(prev => ({ ...prev, payments: true }));
-      const token = authToken || localStorage.getItem('authToken');
-      const newPayment = await createPayment(paymentData, token);
-      await fetchPayments();
-      return newPayment;
-    } catch (error) {
-      console.error('Failed to add payment:', error);
-      throw error;
-    } finally {
-      setLoading(prev => ({ ...prev, payments: false }));
-    }
-  };
-
-  const value = {
-    students,
-    rooms,
-    bookings,
-    payments,
-    addRoom,
-    fetchRooms,
-    deleteStudent,
-    updateStudent,
-    registerStudent,
-    fetchStudents,
-    createBooking,
-    fetchBookings,
-    addPayment,
-    fetchPayments,
-    fetchUserProfile,
-    isAuthenticated,
-    userRole,
-    currentUser,
-    authToken,
-    isInitializing,
-    login,
-    logout,
-    loading,
-  };
+  // ---------- Memoized context value ----------
+  const value = useMemo(
+    () => ({
+      students,
+      rooms,
+      bookings,
+      payments,
+      addRoom,
+      fetchRooms,
+      deleteStudent,
+      updateStudent,
+      registerStudent,
+      fetchStudents,
+      createBooking,
+      fetchBookings,
+      addPayment,
+      fetchPayments,
+      fetchUserProfile,
+      isAuthenticated,
+      userRole,
+      currentUser,
+      authToken,
+      isInitializing,
+      login,
+      logout,
+      loading,
+    }),
+    [
+      students,
+      rooms,
+      bookings,
+      payments,
+      addRoom,
+      fetchRooms,
+      deleteStudent,
+      updateStudent,
+      registerStudent,
+      fetchStudents,
+      createBooking,
+      fetchBookings,
+      addPayment,
+      fetchPayments,
+      fetchUserProfile,
+      isAuthenticated,
+      userRole,
+      currentUser,
+      authToken,
+      isInitializing,
+      login,
+      logout,
+      loading,
+    ]
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

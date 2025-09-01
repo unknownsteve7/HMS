@@ -2,7 +2,7 @@
 // It should not contain any React-specific code like hooks (e.g., useState, useEffect, useCallback).
 
 // const API_URL = 'http://192.168.29.24:8000';
-export const API_URL = 'https://sse-hostel-backend-8klw.onrender.com';
+export const API_URL = 'https://ssehostelbackend-production.up.railway.app';
 //export const API_URL = 'https://derek-invited-cook-mills.trycloudflare.com';
 
 // Helper function to create FormData

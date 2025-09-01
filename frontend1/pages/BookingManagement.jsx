@@ -14,79 +14,49 @@ import {
 } from 'lucide-react';
 
 const BookingManagement = () => {
-  const { bookings, students, rooms, addBooking, addPayment, fetchBookings, fetchStudents, fetchRooms, authToken } = useAppContext();
-  const { showSuccess } = useToast ? useToast() : { showSuccess: console.log };
+  const {
+    bookings,
+    students,
+    rooms,
+    fetchBookings,
+    fetchStudents,
+    fetchRooms,
+    authToken,
+  } = useAppContext();
+
+  const { showSuccess, showError } = useToast ? useToast() : { showSuccess: console.log, showError: console.error };
   const [step, setStep] = useState(0); // 0 for list, 1-4 for wizard
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   // Helper function to format dates from YYYY-MM-DD format
   const formatDate = (dateString) => {
-    console.log('📅 formatDate called with:', dateString, 'type:', typeof dateString);
-
-    if (!dateString) {
-      console.log('❌ formatDate: No date string provided');
-      return 'No Date';
-    }
-
+    if (!dateString) return 'No Date';
     try {
-      // Convert to string if it's not already
       const dateStr = String(dateString).trim();
-      console.log('📅 Processing date string:', dateStr);
 
-      // Handle YYYY-MM-DD format specifically
       if (dateStr.includes('-') && dateStr.length >= 8) {
         const parts = dateStr.split('-');
-        console.log('📅 Date parts:', parts);
-
         if (parts.length >= 3) {
           const year = parseInt(parts[0]);
           const month = parseInt(parts[1]);
           const day = parseInt(parts[2]);
-
-          console.log('📅 Parsed values:', { year, month, day });
-
-          // Validate the parsed values
           if (year > 1900 && year < 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
             const date = new Date(year, month - 1, day);
-            console.log('📅 Created date object:', date);
-
             if (!isNaN(date.getTime())) {
-              const formatted = date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              });
-              console.log('✅ Successfully formatted date:', formatted);
-              return formatted;
+              return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
             }
           }
         }
       }
 
-      // Fallback: try direct Date parsing
-      console.log('🔄 Trying fallback Date parsing...');
       const fallbackDate = new Date(dateStr);
       if (!isNaN(fallbackDate.getTime())) {
-        const formatted = fallbackDate.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        });
-        console.log('✅ Fallback parsing successful:', formatted);
-        return formatted;
+        return fallbackDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       }
 
-      // Last resort: return the original string if it looks like a date
-      if (dateStr.includes('-') || dateStr.includes('/')) {
-        console.log('⚠️ Returning original date string:', dateStr);
-        return dateStr;
-      }
-
-      console.log('❌ All date parsing methods failed');
+      if (dateStr.includes('-') || dateStr.includes('/')) return dateStr;
       return 'Invalid Date';
-
-    } catch (error) {
-      console.error('❌ Error in formatDate:', error, 'for input:', dateString);
+    } catch {
       return 'Error';
     }
   };
@@ -97,71 +67,38 @@ const BookingManagement = () => {
     const paymentSuccess = urlParams.get('payment_success');
     if (paymentSuccess === 'true') {
       showSuccess('Payment completed successfully! The booking has been created.');
-
       // Remove the query parameter from URL without reload
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-
       // Refresh bookings list
       fetchBookings?.();
     }
   }, [showSuccess, fetchBookings]);
 
-  // Enhanced logging for debugging
   useEffect(() => {
     console.log('🔍 BookingManagement - Current data state:', {
-      bookings: {
-        isArray: Array.isArray(bookings),
-        length: bookings?.length,
-        sample: bookings?.[0]
-      },
-      students: {
-        isArray: Array.isArray(students),
-        length: students?.length,
-        sample: students?.[0]
-      },
-      rooms: {
-        isArray: Array.isArray(rooms),
-        length: rooms?.length,
-        sample: rooms?.[0]
-      }
+      bookings: { isArray: Array.isArray(bookings), length: bookings?.length, sample: bookings?.[0] },
+      students: { isArray: Array.isArray(students), length: students?.length, sample: students?.[0] },
+      rooms: { isArray: Array.isArray(rooms), length: rooms?.length, sample: rooms?.[0] }
     });
   }, [bookings, students, rooms]);
 
   // Always fetch the latest data when component mounts
   useEffect(() => {
-    console.log('📋 BookingManagement - Component mounted');
     setIsDataLoading(true);
-
     const fetchAllData = async () => {
       try {
-        // Fetch all necessary data in parallel
         const promises = [];
-
-        if (fetchBookings) {
-          console.log('📋 BookingManagement - Fetching bookings...');
-          promises.push(fetchBookings());
-        }
-
-        if (fetchStudents) {
-          console.log('📋 BookingManagement - Fetching students...');
-          promises.push(fetchStudents());
-        }
-
-        if (fetchRooms) {
-          console.log('📋 BookingManagement - Fetching rooms...');
-          promises.push(fetchRooms());
-        }
-
+        if (fetchBookings) promises.push(fetchBookings());
+        if (fetchStudents) promises.push(fetchStudents());
+        if (fetchRooms) promises.push(fetchRooms());
         await Promise.all(promises);
-        console.log('✅ BookingManagement - All data fetched successfully');
       } catch (error) {
         console.error('❌ Error fetching data:', error);
       } finally {
         setIsDataLoading(false);
       }
     };
-
     fetchAllData();
   }, [fetchBookings, fetchStudents, fetchRooms]);
 
@@ -172,24 +109,15 @@ const BookingManagement = () => {
   const [bookingDetails, setBookingDetails] = useState({});
   const [temporaryBookingId, setTemporaryBookingId] = useState(null);
 
-  // Helper functions to handle different property naming conventions
-  const getStudentName = (studentId) => {
-    if (!students || !Array.isArray(students)) return 'N/A';
-    const student = students.find(s =>
-      (s.id === studentId) ||
-      (s.student_id === studentId) ||
-      (s._id === studentId)
-    );
-    return student?.full_name || student?.name || student?.fullName || 'N/A';
+  const getStudentNameById = (studentId) => {
+    if (!Array.isArray(students)) return 'N/A';
+    const s = students.find(x => (x.id === studentId) || (x.student_id === studentId) || (x._id === studentId));
+    return s?.full_name || s?.name || s?.fullName || 'N/A';
   };
 
-  const getRoomInfo = (roomId) => {
-    if (!rooms || !Array.isArray(rooms)) return null;
-    return rooms.find(r =>
-      (r.id === roomId) ||
-      (r.room_id === roomId) ||
-      (r._id === roomId)
-    ) || null;
+  const getRoomById = (roomId) => {
+    if (!Array.isArray(rooms)) return null;
+    return rooms.find(r => (r.id === roomId) || (r.room_id === roomId) || (r._id === roomId)) || null;
   };
 
   const startBooking = () => setStep(1);
@@ -199,56 +127,15 @@ const BookingManagement = () => {
     setStep(2);
   };
 
+  /**
+   * IMPORTANT: We DO NOT POST anything here.
+   * We just save selection and proceed.
+   */
   const handleSelectRoomAndCot = async (room, cot) => {
     setSelectedRoom(room);
     setSelectedCot(cot);
-
-    try {
-      // Generate a temporary booking ID that will be used for payment
-      const bookingId = `BOOK_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      setTemporaryBookingId(bookingId);
-      console.log('🆔 Generated temporary booking ID:', bookingId);
-
-      // Create a preliminary booking record on the server
-      const preliminaryBooking = {
-        booking_id: bookingId,
-        student_id: selectedStudent?.id || selectedStudent?.student_id || selectedStudent?._id,
-        room_id: room?.id || room?.room_id || room?._id,
-        cot_id: cot?.id || cot?.cot_id,
-        cot_number: cot?.number || cot?.cot_number,
-        status: 'Draft',
-        created_at: new Date().toISOString()
-      };
-
-      console.log('📝 Creating preliminary booking record:', preliminaryBooking);
-
-      // Send the preliminary booking to the backend
-      const response = await fetch(`${API_URL}/admin/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(preliminaryBooking)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create preliminary booking: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Created preliminary booking:', result);
-
-      // Update the temporary booking ID if the server provides one
-      if (result.id || result.booking_id) {
-        setTemporaryBookingId(result.id || result.booking_id);
-      }
-
-    } catch (error) {
-      console.error('❌ Failed to create preliminary booking:', error);
-      // Continue with local booking ID as fallback
-    }
-
+    const bookingId = `BOOK_${Date.now()}_${Math.floor(Math.random() * 1000)}`; // purely local temp id for UI
+    setTemporaryBookingId(bookingId);
     setStep(3);
   };
 
@@ -264,155 +151,156 @@ const BookingManagement = () => {
       emergencyContactMobile: details.emergencyContactMobile,
       academicYear: details.academicYear,
       totalAmount: selectedRoom.pricePerYear || selectedRoom.price_per_year,
+      notes: details.notes,
     });
     setStep(4);
   };
 
-  const handleCreateBooking = (paymentDetails) => {
-    // If this is an offline payment (cash, bank transfer), create booking directly
-    if (paymentDetails.paymentMethod !== 'Online Payment') {
-      const finalBookingData = {
-        ...bookingDetails,
-        status: 'Pending Check-in',
-        paymentStatus: paymentDetails.amount >= bookingDetails.totalAmount ? 'Fully Paid' : 'Advance Paid',
-        amountPaid: paymentDetails.amount,
-        balance: bookingDetails.totalAmount - paymentDetails.amount,
-      };
+  /**
+   * Admin helper to post a booking with "offline" payment (Cash/Bank/…).
+   * Backend will store booking + payment in one call.
+   */
+  const createOfflineBooking = async ({ amount, paymentType, paymentMethod }) => {
+    const payload = {
+      student_id: bookingDetails.studentId,
+      cot_id: bookingDetails.cotId,
+      academic_year: bookingDetails.academicYear,
+      check_in_date: bookingDetails.checkInDate,
+      emergency_contact_name: bookingDetails.emergencyContactName,
+      emergency_contact_mobile: bookingDetails.emergencyContactMobile,
+      payment_amount: Number(amount),
+      payment_method: paymentMethod,          // 'Cash' | 'Bank Transfer' | 'Cheque'
+      payment_type: paymentType,              // 'Advance' | 'Full Payment'
+      notes: bookingDetails.notes || 'Booking created by admin (offline payment).'
+    };
 
-      addBooking(finalBookingData);
-      addPayment({
-        bookingId: `B${Date.now()}`,
-        studentId: finalBookingData.studentId,
-        amount: paymentDetails.amount,
-        type: paymentDetails.paymentType,
-        method: paymentDetails.paymentMethod,
-        status: 'Successful',
-        date: new Date().toISOString()
-      });
+    const res = await fetch(`${API_URL}/admin/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errTxt = await res.text();
+      throw new Error(`Failed to create booking (offline): ${errTxt}`);
     }
-    // For online payments, the booking will be created by PaymentStatus component after successful payment
-    // using the data stored in sessionStorage
-
-    // Reset wizard
-    setStep(0);
-    setSelectedStudent(null);
-    setSelectedRoom(null);
-    setSelectedCot(null);
-    setBookingDetails({});
+    return res.json();
   };
 
-  // Function to process direct JSON data for booking creation
+  /**
+   * Admin helper to post a booking (with required fields) and then start PayU.
+   * NOTE: exact strings matter ('Online Payment').
+   */
+  const createBookingThenStartPayU = async ({ amount }) => {
+    // 1) Create the booking (no preliminary draft)
+    const bookingPayload = {
+      student_id: bookingDetails.studentId,
+      cot_id: bookingDetails.cotId,
+      academic_year: bookingDetails.academicYear,                      // REQUIRED
+      check_in_date: bookingDetails.checkInDate,                       // REQUIRED (YYYY-MM-DD)
+      emergency_contact_name: bookingDetails.emergencyContactName,     // REQUIRED
+      emergency_contact_mobile: bookingDetails.emergencyContactMobile, // REQUIRED
+      payment_amount: Number(amount),                                  // REQUIRED
+      payment_method: 'Online Payment',                                // REQUIRED exact string per backend
+      payment_type: 'Advance',                                         // or pass from UI if needed
+      notes: bookingDetails.notes || 'Booking created by admin (online).',
+    };
+
+    const bookingRes = await fetch(`${API_URL}/admin/bookings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify(bookingPayload)
+    });
+
+    if (!bookingRes.ok) {
+      const errTxt = await bookingRes.text();
+      throw new Error(`Failed to create booking: ${errTxt}`);
+    }
+
+    const booking = await bookingRes.json();
+    const finalBookingId = booking.booking_id || booking.id;
+    if (!finalBookingId) throw new Error('No booking_id returned from server');
+
+    // 2) Initiate PayU
+    const payuResp = await initiatePayUPayment(
+      { booking_id: finalBookingId, amount: Number(amount) }, // correct signature
+      authToken
+    );
+
+    if (payuResp?.payment_data) {
+      // persist context for after-return
+      sessionStorage.setItem('admin_creating_booking', 'true');
+      sessionStorage.setItem('admin_booking_details', JSON.stringify({
+        bookingId: finalBookingId,
+        studentId: bookingDetails.studentId,
+        roomId: bookingDetails.roomId,
+        amount: Number(amount),
+        paymentType: 'Advance',
+      }));
+      redirectToPayU(payuResp.payment_data);
+      return;
+    }
+
+    throw new Error(payuResp?.message || 'Failed to initiate payment');
+  };
+
+  /**
+   * Old debug helper fixed to map fields to backend shape
+   */
   const processDirectBookingData = async (bookingData) => {
     try {
-      console.log('📝 Processing direct booking data:', bookingData);
-
-      // Find student by student_id
-      const student = students.find(s =>
-        (s.id == bookingData.student_id) ||
-        (s.student_id == bookingData.student_id) ||
-        (s._id == bookingData.student_id)
+      // student exists?
+      const student = (students || []).find(s =>
+        (s.id == bookingData.student_id) || (s.student_id == bookingData.student_id) || (s._id == bookingData.student_id)
       );
+      if (!student) return { success: false, message: 'Student not found' };
 
-      if (!student) {
-        console.error('❌ Student not found with ID:', bookingData.student_id);
-        return { success: false, message: 'Student not found' };
+      // cot exists?
+      let targetRoom = null, targetCot = null;
+      for (const r of rooms || []) {
+        const m = (r.cots || []).find(c => (c.id == bookingData.cot_id) || (c.cot_id == bookingData.cot_id) || (c._id == bookingData.cot_id));
+        if (m) { targetRoom = r; targetCot = m; break; }
       }
+      if (!targetRoom || !targetCot) return { success: false, message: 'Room or cot not found' };
 
-      // Use the provided booking_id or generate a new one if not provided
-      const bookingId = bookingData.booking_id || `BOOK_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-      // Find room and cot
-      let targetRoom = null;
-      let targetCot = null;
-
-      for (const room of rooms) {
-        const cots = room?.cots || [];
-        const matchingCot = cots.find(c =>
-          (c.id == bookingData.cot_id) ||
-          (c.cot_id == bookingData.cot_id) ||
-          (c._id == bookingData.cot_id)
-        );
-
-        if (matchingCot) {
-          targetRoom = room;
-          targetCot = matchingCot;
-          break;
-        }
-      }
-
-      if (!targetRoom || !targetCot) {
-        console.error('❌ Room or cot not found with ID:', bookingData.cot_id);
-        return { success: false, message: 'Room or cot not found' };
-      }
-
-      // Create booking
-      const finalBookingData = {
-        booking_id: bookingId, // Use the booking ID
-        studentId: student.id || student.student_id || student._id,
-        roomId: targetRoom.id || targetRoom.room_id || targetRoom._id,
-        cotId: targetCot.id || targetCot.cot_id || targetCot._id,
-        cotNumber: targetCot.number || targetCot.cot_number,
-        checkInDate: bookingData.check_in_date,
-        emergencyContactName: bookingData.emergency_contact_name,
-        emergencyContactMobile: bookingData.emergency_contact_mobile,
-        academicYear: bookingData.academic_year,
-        totalAmount: targetRoom.pricePerYear || targetRoom.price_per_year || 0,
-        status: 'Pending Check-in',
-        paymentStatus: bookingData.payment_amount >= (targetRoom.pricePerYear || targetRoom.price_per_year || 0) ?
-          'Fully Paid' : 'Advance Paid',
-        amountPaid: bookingData.payment_amount,
-        balance: (targetRoom.pricePerYear || targetRoom.price_per_year || 0) - bookingData.payment_amount,
-        notes: bookingData.notes
+      // Build exact payload for /admin/bookings
+      const payload = {
+        student_id: bookingData.student_id,
+        cot_id: bookingData.cot_id,
+        academic_year: bookingData.academic_year,
+        check_in_date: bookingData.check_in_date,
+        emergency_contact_name: bookingData.emergency_contact_name,
+        emergency_contact_mobile: bookingData.emergency_contact_mobile,
+        payment_amount: Number(bookingData.payment_amount),
+        payment_method: bookingData.payment_method,   // 'Cash' | 'Online Payment' | ...
+        payment_type: bookingData.payment_type,       // 'Advance' | 'Full Payment'
+        notes: bookingData.notes || 'Direct admin booking',
       };
 
-      let result;
-
-      // Try to create the booking directly with the API first
-      try {
-        console.log('📝 Sending booking data to API:', finalBookingData);
-
-        // Send the booking to the backend
-        const response = await fetch(`${API_URL}/admin/bookings`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(finalBookingData)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create booking via API: ${response.statusText}`);
-        }
-
-        const apiResult = await response.json();
-        console.log('✅ Created booking via API:', apiResult);
-        result = apiResult;
-
-      } catch (apiError) {
-        console.warn('⚠️ API direct booking failed, falling back to local handling:', apiError);
-        // Fallback to the local addBooking function
-        result = await addBooking(finalBookingData);
-      }
-
-      // Add payment record
-      await addPayment({
-        bookingId: result?.id || result?.booking_id || bookingId,
-        studentId: finalBookingData.studentId,
-        amount: bookingData.payment_amount,
-        type: bookingData.payment_type,
-        method: bookingData.payment_method,
-        status: 'Successful',
-        date: new Date().toISOString()
+      const res = await fetch(`${API_URL}/admin/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify(payload)
       });
 
-      console.log('✅ Direct booking created successfully');
-      return { success: true, booking: result };
+      if (!res.ok) {
+        const errTxt = await res.text();
+        throw new Error(`Failed to create booking: ${errTxt}`);
+      }
+
+      const created = await res.json();
+      // optional: add a payment UI toast
+      showSuccess('Booking created successfully!');
+      await fetchBookings?.();
+
+      return { success: true, booking: created };
     } catch (error) {
       console.error('❌ Failed to create direct booking:', error);
       return { success: false, message: error.message };
     }
-  }; const wizardSteps = [
+  };
+
+  const wizardSteps = [
     { name: 'Select Student', icon: User },
     { name: 'Select Room', icon: Bed },
     { name: 'Booking Details', icon: ListChecks },
@@ -442,45 +330,29 @@ const BookingManagement = () => {
         {step === 1 && <SelectStudentStep onSelect={handleSelectStudent} />}
         {step === 2 && <SelectRoomStep student={selectedStudent} onSelect={handleSelectRoomAndCot} onBack={() => setStep(1)} />}
         {step === 3 && <BookingDetailsStep student={selectedStudent} room={selectedRoom} cot={selectedCot} onSubmit={handleBookingDetailsSubmit} onBack={() => setStep(2)} />}
-        {step === 4 && <PaymentStep room={selectedRoom} student={selectedStudent} cot={selectedCot} bookingDetails={bookingDetails} bookingId={temporaryBookingId} onSubmit={handleCreateBooking} onBack={() => setStep(3)} />}
+        {step === 4 && (
+          <PaymentStep
+            room={selectedRoom}
+            student={selectedStudent}
+            cot={selectedCot}
+            bookingDetails={bookingDetails}
+            bookingId={temporaryBookingId}
+            onBack={() => setStep(3)}
+            onDone={async () => {
+              // after any successful path, reset + refresh
+              setStep(0);
+              setSelectedStudent(null);
+              setSelectedRoom(null);
+              setSelectedCot(null);
+              setBookingDetails({});
+              await fetchBookings?.();
+            }}
+            createOfflineBooking={createOfflineBooking}
+            createBookingThenStartPayU={createBookingThenStartPayU}
+          />
+        )}
       </Card>
     );
-  };
-
-  // Function to demonstrate direct booking with the provided JSON data
-  const handleDirectJsonBooking = async () => {
-    // Generate a booking ID
-    const generatedBookingId = `BOOK_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-    // Create the booking data with the generated ID
-    const bookingData = {
-      booking_id: generatedBookingId,  // Add the booking ID directly
-      student_id: 1,
-      cot_id: "your_available_cot_id_from_the_database", // Replace with an actual cot ID if needed
-      academic_year: "2025-2026",
-      check_in_date: "2025-09-01",
-      emergency_contact_name: "Ramesh Kumar (Guardian)",
-      emergency_contact_mobile: "9876543210",
-      payment_amount: 5000.00,
-      payment_method: "Cash",
-      payment_type: "Advance",
-      notes: "Booking created by admin in person."
-    };
-
-    console.log('🆔 Generated booking ID:', generatedBookingId);
-    console.log('📝 Initiating booking with data:', bookingData);
-
-    const result = await processDirectBookingData(bookingData);
-
-    if (result.success) {
-      showSuccess('Booking created successfully!');
-      // Refresh bookings list
-      fetchBookings?.();
-    } else {
-      // Using console.error as fallback if showError is not available
-      const showErrorFn = useToast?.()?.showError || console.error;
-      showErrorFn(`Failed to create booking: ${result.message}`);
-    }
   };
 
   return (
@@ -491,34 +363,24 @@ const BookingManagement = () => {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-text-dark">Booking List</h2>
               <div className="flex gap-2">
-
                 <Button onClick={startBooking} leftIcon={<PlusCircle className="w-4 h-4" />}>
                   Create Booking
                 </Button>
               </div>
             </div>
           </Card>
+
           <Card>
             <Table headers={['Booking Ref', 'Student', 'Room/Cot', 'Check-in', 'Status']}>
-              {bookings.map(booking => {
-                const room = getRoomInfo(booking.roomId);
-
-                // Debug logging to see actual date values
-                console.log('📅 Booking date debug:', {
-                  booking_id: booking.booking_id,
-                  check_in_date: booking.check_in_date,
-                  check_in_type: typeof booking.check_in_date,
-                  formatted_check_in: formatDate(booking.check_in_date),
-                });
-
+              {(bookings || []).map((booking) => {
+                const room = getRoomById(booking.roomId);
                 return (
-                  <TableRow key={booking.id}>
-                    <TableCell className="font-mono text-xs">{booking.booking_id}</TableCell>
-                    <TableCell>{getStudentName(booking.studentId)}</TableCell>
-                    <TableCell>{room ? `${room.room_number} / ${booking.cot_number}` : 'N/A'}</TableCell>
-                    <TableCell>{formatDate(booking.check_in_date)}</TableCell>
-                    <TableCell><StatusTag status={booking.status} /></TableCell>
-
+                  <TableRow key={booking.id || booking.booking_id}>
+                    <TableCell className="font-mono text-xs">{booking.booking_id || booking.id}</TableCell>
+                    <TableCell>{getStudentNameById(booking.studentId)}</TableCell>
+                    <TableCell>{room ? `${room.room_number || room.roomNumber} / ${booking.cot_number || booking.cotNumber}` : 'N/A'}</TableCell>
+                    <TableCell>{formatDate(booking.check_in_date || booking.checkInDate)}</TableCell>
+                    <TableCell><StatusTag status={booking.status || 'Pending'} /></TableCell>
                   </TableRow>
                 );
               })}
@@ -530,404 +392,255 @@ const BookingManagement = () => {
   );
 };
 
-
-// Wizard Steps Components (defined within the same file for simplicity)
+/* ------------------------- Wizard Step Components ------------------------- */
 
 const SelectStudentStep = ({ onSelect }) => {
   const { students, fetchStudents } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Use useEffect to log student data for debugging
-  React.useEffect(() => {
-    console.log('🔍 SelectStudentStep - Student data:', {
-      studentsArray: students,
-      isArray: Array.isArray(students),
-      length: students?.length,
-      firstStudent: students?.[0]
-    });
-
+  useEffect(() => {
     if (!students || students.length === 0) {
-      console.log('🔍 No students found, triggering fetch...');
       fetchStudents?.().catch(error => console.error('Failed to fetch students:', error));
     }
   }, [students, fetchStudents]);
 
-  // Handle different property names that might come from the API
-  const getStudentName = (student) => {
-    return student?.full_name || student?.name || student?.fullName || 'Unknown';
-  };
+  const getStudentName = (student) => student?.full_name || student?.name || student?.fullName || 'Unknown';
+  const getRegistrationNumber = (student) => student?.Registration_number || student?.registration_number || student?.registrationNumber || 'N/A';
+  const getBranch = (student) => student?.Branch || student?.branch || 'N/A';
+  const getYear = (student) => student?.Year || student?.year || 'N/A';
+  const getStudentId = (student) => student?.id || student?.student_id || student?._id;
 
-  const getRegistrationNumber = (student) => {
-    return student?.Registration_number || student?.registration_number || student?.registrationNumber || 'N/A';
-  };
-
-  const getBranch = (student) => {
-    return student?.Branch || student?.branch || 'N/A';
-  };
-
-  const getYear = (student) => {
-    return student?.Year || student?.year || 'N/A';
-  };
-
-  const getStudentId = (student) => {
-    return student?.id || student?.student_id || student?._id;
-  };
-
-  // More defensive filtering logic
   const filteredStudents = useMemo(() => {
-    console.log('🔎 Filtering students with search term:', searchTerm);
-
-    if (!students || !Array.isArray(students)) {
-      console.log('❌ Students data is not an array');
-      return [];
-    }
-
-    if (searchTerm.length < 2) {
-      const limited = students.slice(0, 5);
-      console.log(`🔍 Showing first ${limited.length} students`);
-      return limited;
-    }
-
-    const filtered = students.filter(s => {
-      if (!s) return false;
-
+    if (!Array.isArray(students)) return [];
+    if (searchTerm.length < 2) return students.slice(0, 5);
+    const searchLower = searchTerm.toLowerCase();
+    return students.filter(s => {
       const name = getStudentName(s).toLowerCase();
       const regNum = getRegistrationNumber(s).toLowerCase();
-      const searchLower = searchTerm.toLowerCase();
-
       return name.includes(searchLower) || regNum.includes(searchLower);
     });
-
-    console.log(`🔍 Found ${filtered.length} students matching "${searchTerm}"`);
-    return filtered;
   }, [students, searchTerm]);
 
-  return <div>
-    <h3 className="font-bold text-lg mb-4 text-center">Step 1: Select Student</h3>
-    <Input placeholder="Search by name or registration no... (min 2 chars)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-    <p className="text-xs text-text-medium mt-1 mb-4">Showing {filteredStudents.length} students</p>
+  return (
+    <div>
+      <h3 className="font-bold text-lg mb-4 text-center">Step 1: Select Student</h3>
+      <Input placeholder="Search by name or registration no... (min 2 chars)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+      <p className="text-xs text-text-medium mt-1 mb-4">Showing {filteredStudents.length} students</p>
 
-    {students && students.length > 0 ? (
-      <div className="max-h-96 overflow-y-auto">
-        <Table headers={['Name', 'Registration No', 'Branch', 'Year', 'Action']}>
-          {filteredStudents.map(s => (
-            <TableRow key={getStudentId(s) || Math.random().toString()}>
-              <TableCell>{getStudentName(s)}</TableCell>
-              <TableCell>{getRegistrationNumber(s)}</TableCell>
-              <TableCell>{getBranch(s)}</TableCell>
-              <TableCell>{getYear(s)}</TableCell>
-              <TableCell><Button variant="primary" onClick={() => onSelect(s)}>Select</Button></TableCell>
-            </TableRow>
-          ))}
-        </Table>
-      </div>
-    ) : (
-      <div className="text-center p-8 bg-slate-100 rounded-lg">
-        <p className="text-text-medium mb-4">No students found or still loading...</p>
-        <Button onClick={() => fetchStudents?.().catch(error => console.error('Failed to fetch students:', error))}>
-          Refresh Student List
-        </Button>
-      </div>
-    )}
-  </div>;
+      {students && students.length > 0 ? (
+        <div className="max-h-96 overflow-y-auto">
+          <Table headers={['Name', 'Registration No', 'Branch', 'Year', 'Action']}>
+            {filteredStudents.map(s => (
+              <TableRow key={getStudentId(s) || Math.random().toString()}>
+                <TableCell>{getStudentName(s)}</TableCell>
+                <TableCell>{getRegistrationNumber(s)}</TableCell>
+                <TableCell>{getBranch(s)}</TableCell>
+                <TableCell>{getYear(s)}</TableCell>
+                <TableCell><Button variant="primary" onClick={() => onSelect(s)}>Select</Button></TableCell>
+              </TableRow>
+            ))}
+          </Table>
+        </div>
+      ) : (
+        <div className="text-center p-8 bg-slate-100 rounded-lg">
+          <p className="text-text-medium mb-4">No students found or still loading...</p>
+          <Button onClick={() => fetchStudents?.().catch(error => console.error('Failed to fetch students:', error))}>
+            Refresh Student List
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const SelectRoomStep = ({ student, onSelect, onBack }) => {
   const { rooms } = useAppContext();
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Handle different property names that might come from the API
-  const getStudentName = (student) => {
-    return student?.full_name || student?.name || student?.fullName || 'Unknown';
-  };
+  const getStudentName = (s) => s?.full_name || s?.name || s?.fullName || 'Unknown';
+  const getRegistrationNumber = (s) => s?.Registration_number || s?.registration_number || s?.registrationNumber || 'N/A';
+  const getGender = (s) => s?.gender || 'Any';
 
-  const getRegistrationNumber = (student) => {
-    return student?.Registration_number || student?.registration_number || student?.registrationNumber || 'N/A';
-  };
-
-  const getGender = (student) => {
-    return student?.gender || 'Any';
-  };
-
-  // Filter rooms based on student gender or show all if no student selected
   const availableRooms = useMemo(() => {
-    if (!rooms || !Array.isArray(rooms)) {
-      console.log('❌ No rooms data available');
-      return [];
-    }
-
-    // Default to showing all rooms that aren't full
+    if (!Array.isArray(rooms)) return [];
     let filtered = rooms.filter(r => r.status !== 'Full');
-
-    // If we have a student with gender, filter by gender preference
     if (student) {
       const gender = getGender(student);
-      console.log('🔍 Filtering rooms for gender:', gender);
-
-      if (gender === 'male' || gender === 'Male') {
+      if (gender?.toLowerCase() === 'male') {
         filtered = filtered.filter(r =>
-          r.genderPreference === 'Mixed' ||
-          r.genderPreference === 'Male' ||
-          r.gender_preference === 'Mixed' ||
-          r.gender_preference === 'Male'
+          r.genderPreference === 'Mixed' || r.genderPreference === 'Male' ||
+          r.gender_preference === 'Mixed' || r.gender_preference === 'Male'
         );
-      } else if (gender === 'female' || gender === 'Female') {
+      } else if (gender?.toLowerCase() === 'female') {
         filtered = filtered.filter(r =>
-          r.genderPreference === 'Mixed' ||
-          r.genderPreference === 'Female' ||
-          r.gender_preference === 'Mixed' ||
-          r.gender_preference === 'Female'
+          r.genderPreference === 'Mixed' || r.genderPreference === 'Female' ||
+          r.gender_preference === 'Mixed' || r.gender_preference === 'Female'
         );
       }
     }
-
-    console.log(`🏠 Found ${filtered.length} available rooms`);
     return filtered;
   }, [rooms, student]);
 
-  // Room helper functions
-  const getRoomNumber = (room) => {
-    return room?.roomNumber || room?.room_number || 'Unknown';
-  };
+  const getRoomNumber = (r) => r?.roomNumber || r?.room_number || 'Unknown';
+  const getRoomType = (r) => r?.type || r?.room_type || 'Standard';
+  const getFloor = (r) => r?.floor || '1st Floor';
+  const getPrice = (r) => r?.pricePerYear || r?.price_per_year || 0;
+  const getCots = (r) => r?.cots || [];
+  const getCotNumber = (c) => c?.number || c?.cot_number || '?';
+  const isCotAvailable = (c) => c?.status === 'Available' || c?.status === 'available';
 
-  const getRoomType = (room) => {
-    return room?.type || room?.room_type || 'Standard';
-  };
+  return (
+    <div>
+      <h3 className="font-bold text-lg mb-2 text-center">Step 2: Select Room & Cot</h3>
+      {student && (
+        <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
+          Selected Student: <span className="font-bold">{getStudentName(student)} ({getRegistrationNumber(student)})</span>
+        </div>
+      )}
 
-  const getFloor = (room) => {
-    return room?.floor || '1st Floor';
-  };
-
-  const getPrice = (room) => {
-    return room?.pricePerYear || room?.price_per_year || 0;
-  };
-
-  const getAdvanceAmount = (room) => {
-    return room?.advanceAmount || room?.advance_amount || 0;
-  };
-
-  const getCots = (room) => {
-    return room?.cots || [];
-  };
-
-  const getCotNumber = (cot) => {
-    return cot?.number || cot?.cot_number || '?';
-  };
-
-  const isCotAvailable = (cot) => {
-    return cot?.status === 'Available' || cot?.status === 'available';
-  };
-
-  return <div>
-    <h3 className="font-bold text-lg mb-2 text-center">Step 2: Select Room & Cot</h3>
-    {student && (
-      <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
-        Selected Student: <span className="font-bold">{getStudentName(student)} ({getRegistrationNumber(student)})</span>
-      </div>
-    )}
-
-    {availableRooms.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-1">
-        {availableRooms.map((r, index) => (
-          <Card key={r.id || r.room_id || r._id || index}>
-            <h4 className="font-bold">{getRoomNumber(r)} - {getRoomType(r)}</h4>
-            <p className="text-sm text-text-medium">{getFloor(r)}</p>
-            <p className="text-sm mt-2">Price: <span className="font-semibold">₹{getPrice(r).toLocaleString()}/year</span></p>
-            <div className="mt-4">
-              <p className="text-xs font-semibold mb-2">Available Cots:</p>
-              <div className="flex gap-2 flex-wrap">
-                {getCots(r).map((cot, cotIndex) => {
-                  const isAvailable = isCotAvailable(cot);
-                  return (
-                    <Button
-                      key={cot.id || cot.cot_id || cotIndex}
-                      onClick={() => onSelect(r, cot)}
-                      disabled={!isAvailable}
-                      variant="secondary"
-                      className={`!px-4 !py-2 ${!isAvailable ? '!bg-slate-300 !text-slate-500 !shadow-none' : ''}`}
-                    >
-                      Cot {getCotNumber(cot)}
-                    </Button>
-                  );
-                })}
+      {availableRooms.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-1">
+          {availableRooms.map((r, index) => (
+            <Card key={r.id || r.room_id || r._id || index}>
+              <h4 className="font-bold">{getRoomNumber(r)} - {getRoomType(r)}</h4>
+              <p className="text-sm text-text-medium">{getFloor(r)}</p>
+              <p className="text-sm mt-2">Price: <span className="font-semibold">₹{getPrice(r).toLocaleString()}/year</span></p>
+              <div className="mt-4">
+                <p className="text-xs font-semibold mb-2">Available Cots:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {getCots(r).map((cot, cotIndex) => {
+                    const isAvailable = isCotAvailable(cot);
+                    return (
+                      <Button
+                        key={cot.id || cot.cot_id || cotIndex}
+                        onClick={() => onSelect(r, cot)}
+                        disabled={!isAvailable}
+                        variant="secondary"
+                        className={`!px-4 !py-2 ${!isAvailable ? '!bg-slate-300 !text-slate-500 !shadow-none' : ''}`}
+                      >
+                        Cot {getCotNumber(cot)}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center p-8 bg-slate-100 rounded-lg">
-        <p className="text-text-medium mb-4">No available rooms found for this student.</p>
-      </div>
-    )}
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center p-8 bg-slate-100 rounded-lg">
+          <p className="text-text-medium mb-4">No available rooms found for this student.</p>
+        </div>
+      )}
 
-    <div className="mt-8 flex justify-between">
-      <Button onClick={onBack} variant="secondary" leftIcon={<ArrowRight className="w-4 h-4" />}>Back</Button>
+      <div className="mt-8 flex justify-between">
+        <Button onClick={onBack} variant="secondary" leftIcon={<ArrowRight className="w-4 h-4" />}>Back</Button>
+      </div>
     </div>
-  </div>;
+  );
 };
 
 const BookingDetailsStep = ({ student, room, cot, onSubmit, onBack }) => {
-  const [details, setDetails] = useState({ academicYear: '2024-2025', checkInDate: '', checkOutDate: '', emergencyContactName: '', emergencyContactMobile: '' });
+  const [details, setDetails] = useState({
+    academicYear: '2025-2026',
+    checkInDate: '',
+    checkOutDate: '',
+    emergencyContactName: '',
+    emergencyContactMobile: '',
+    notes: ''
+  });
   const handleChange = (e) => setDetails({ ...details, [e.target.name]: e.target.value });
 
-  // Helper functions to handle different property formats
-  const getStudentName = (student) => {
-    return student?.full_name || student?.name || student?.fullName || 'Unknown';
-  };
+  const getStudentName = (s) => s?.full_name || s?.name || s?.fullName || 'Unknown';
+  const getRoomNumber = (r) => r?.roomNumber || r?.room_number || 'Unknown';
+  const getCotNumber = (c) => c?.number || c?.cot_number || '?';
 
-  const getRoomNumber = (room) => {
-    return room?.roomNumber || room?.room_number || 'Unknown';
-  };
-
-  const getCotNumber = (cot) => {
-    return cot?.number || cot?.cot_number || '?';
-  };
-
-  return <div>
-    <h3 className="font-bold text-lg mb-2 text-center">Step 3: Booking Details</h3>
-    <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
-      Booking for <span className="font-bold">{getStudentName(student)}</span> in Room <span className="font-bold">{getRoomNumber(room)} (Cot {getCotNumber(cot)})</span>
+  return (
+    <div>
+      <h3 className="font-bold text-lg mb-2 text-center">Step 3: Booking Details</h3>
+      <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
+        Booking for <span className="font-bold">{getStudentName(student)}</span> in Room <span className="font-bold">{getRoomNumber(room)} (Cot {getCotNumber(cot)})</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Select label="Academic Year*" name="academicYear" value={details.academicYear} onChange={handleChange}>
+          <option>2024-2025</option>
+          <option>2025-2026</option>
+        </Select>
+        <Input label="Check-in Date*" name="checkInDate" type="date" value={details.checkInDate} onChange={handleChange} />
+        <div className="md:col-span-2" />
+        <Input label="Emergency Contact Name*" name="emergencyContactName" value={details.emergencyContactName} onChange={handleChange} />
+        <Input label="Emergency Contact Mobile*" name="emergencyContactMobile" type="tel" value={details.emergencyContactMobile} onChange={handleChange} />
+        <Input label="Notes (optional)" name="notes" value={details.notes} onChange={handleChange} />
+      </div>
+      <div className="mt-8 flex justify-between">
+        <Button onClick={onBack} variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
+        <Button
+          onClick={() => onSubmit(details)}
+          rightIcon={<ArrowRight className="w-4 h-4" />}
+          disabled={!details.checkInDate || !details.emergencyContactName || !details.emergencyContactMobile}
+        >
+          Continue
+        </Button>
+      </div>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <Select label="Academic Year*" name="academicYear" value={details.academicYear} onChange={handleChange}>
-        <option>2024-2025</option>
-        <option>2025-2026</option>
-      </Select>
-      <Input label="Check-in Date*" name="checkInDate" type="date" value={details.checkInDate} onChange={handleChange} />
-      <div className="md:col-span-2" />
-      <Input label="Emergency Contact Name*" name="emergencyContactName" value={details.emergencyContactName} onChange={handleChange} />
-      <Input label="Emergency Contact Mobile*" name="emergencyContactMobile" type="tel" value={details.emergencyContactMobile} onChange={handleChange} />
-    </div>
-    <div className="mt-8 flex justify-between">
-      <Button onClick={onBack} variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-      <Button
-        onClick={() => onSubmit(details)}
-        rightIcon={<ArrowRight className="w-4 h-4" />}
-        disabled={!details.checkInDate || !details.emergencyContactName || !details.emergencyContactMobile}
-      >
-        Continue
-      </Button>
-    </div>
-  </div>
-}
+  );
+};
 
-const PaymentStep = ({ room, onSubmit, onBack, student, cot, bookingDetails, bookingId }) => {
-  // Helper functions to handle different property formats
-  const getPrice = (room) => {
-    return room?.pricePerYear || room?.price_per_year || 0;
-  };
-
-  const getAdvanceAmount = (room) => {
-    return room?.advanceAmount || room?.advance_amount || 0;
-  };
-
-  const { authToken, addPayment } = useAppContext();
+const PaymentStep = ({
+  room,
+  onBack,
+  student,
+  cot,
+  bookingDetails,
+  bookingId,
+  onDone,
+  createOfflineBooking,
+  createBookingThenStartPayU
+}) => {
+  const { authToken } = useAppContext();
   const { showSuccess, showError } = useToast ? useToast() : { showSuccess: console.log, showError: console.error };
-  const [showPayUModal, setShowPayUModal] = useState(false);
+
+  const getPrice = (r) => r?.pricePerYear || r?.price_per_year || 0;
+  const getAdvanceAmount = (r) => r?.advanceAmount || r?.advance_amount || 0;
+
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [details, setDetails] = useState({
-    amount: getAdvanceAmount(room),
+    amount: getAdvanceAmount(room) || Math.round(getPrice(room) * 0.2),
     paymentMethod: 'Online Payment',
     paymentType: 'Advance'
   });
 
   const handleChange = (e) => setDetails({ ...details, [e.target.name]: e.target.value });
 
-  // Function to handle local payment submission (cash, transfer, etc.)
-  const handleLocalPaymentSubmit = () => {
-    onSubmit(details);
-  };
-
-  // Function to handle PayU payment initiation
-  const handlePayUInitiation = async () => {
+  const handleLocalPaymentSubmit = async () => {
     try {
       setIsProcessingPayment(true);
-      showSuccess('Securing your booking...');
-
-      // 1. Create a preliminary booking record on the server first
-      const preliminaryBooking = {
-        student_id: student?.id || student?.student_id || student?._id,
-        room_id: room?.id || room?.room_id || room?._id,
-        cot_id: cot?.id || cot?.cot_id,
-        cot_number: cot?.number || cot?.cot_number,
-        status: 'Payment Pending', // Mark as pending until payment is confirmed
-        check_in_date: bookingDetails.checkInDate || new Date().toISOString().split('T')[0],
-        check_out_date: bookingDetails.checkOutDate || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-        total_amount: getPrice(room),
-        payment_method: 'Online',
-        booking_id: bookingId // Use the ID generated in the previous step
-      };
-
-      console.log('📝 Step 1: Creating preliminary booking record:', preliminaryBooking);
-
-      const bookingResponse = await fetch(`${API_URL}/admin/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(preliminaryBooking)
+      const result = await createOfflineBooking({
+        amount: details.amount,
+        paymentType: details.paymentType,
+        paymentMethod: details.paymentMethod
       });
-
-      if (!bookingResponse.ok) {
-        const errorData = await bookingResponse.json();
-        throw new Error(`Failed to create booking: ${errorData.message || bookingResponse.statusText}`);
-      }
-
-      const bookingResult = await bookingResponse.json();
-      const finalBookingId = bookingResult.booking_id || bookingResult.id || bookingId;
-      console.log('✅ Step 1: Preliminary booking created successfully with ID:', finalBookingId);
-
-      // 2. Now, initiate the payment for the created booking
-      showSuccess('Preparing payment gateway...');
-      console.log(`💰 Step 2: Initiating payment for booking ID ${finalBookingId}`);
-
-      const paymentResponse = await initiatePayUPayment(
-        finalBookingId,
-        details.amount,
-        authToken
-      );
-
-      console.log('💰 Step 2: Payment initiation response:', paymentResponse);
-
-      if (paymentResponse.success && paymentResponse.payment_data) {
-        showSuccess('Redirecting to payment gateway...');
-
-        // Store details for post-payment verification
-        sessionStorage.setItem('admin_creating_booking', 'true');
-        sessionStorage.setItem('admin_booking_details', JSON.stringify({
-          bookingId: finalBookingId,
-          studentId: student?.id || student?.student_id || student?._id,
-          roomId: room?.id || room?.room_id || room?._id,
-          amount: details.amount,
-          paymentType: details.paymentType
-        }));
-
-        // Small delay to show success message before redirecting
-        setTimeout(() => {
-          redirectToPayU(paymentResponse.payment_data);
-        }, 1500);
-      } else {
-        throw new Error(paymentResponse.message || 'Failed to initiate payment');
-      }
-    } catch (error) {
-      console.error('❌ Payment initiation failed:', error);
-      const showError = useToast()?.showError || console.error;
-      showError(error.message || 'Failed to initiate payment. Please try again.');
-
-      // Special error handling for common issues
-      if (error.message && error.message.includes('Network Error')) {
-        showError('Network connection issue. Please check your internet connection and try again.');
-      } else if (error.message && error.message.includes('500')) {
-        showError('The payment server is currently experiencing issues. Please try again later or use a different payment method.');
-      }
+      showSuccess('Booking created successfully (offline).');
+      await onDone?.(result);
+    } catch (e) {
+      showError(e.message || 'Failed to create booking.');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
-  // Function to handle payment submission based on method
+  const handlePayUInitiation = async () => {
+    try {
+      setIsProcessingPayment(true);
+      showSuccess('Securing your booking...');
+      await createBookingThenStartPayU({ amount: details.amount });
+      // redirectToPayU is called inside helper; nothing else here
+    } catch (e) {
+      showError(e.message || 'Failed to initiate payment.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handlePaymentSubmit = () => {
     if (details.paymentMethod === 'Online Payment') {
       handlePayUInitiation();
@@ -936,58 +649,57 @@ const PaymentStep = ({ room, onSubmit, onBack, student, cot, bookingDetails, boo
     }
   };
 
-  return <div>
-    <h3 className="font-bold text-lg mb-2 text-center">Step 4: Payment Details</h3>
-    <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
-      <h4 className="font-bold mb-2">Payment Summary</h4>
-      <div className="flex justify-between text-sm"><span>Total Amount:</span> <span>₹{getPrice(room).toLocaleString()}</span></div>
-      <div className="flex justify-between text-sm"><span>Advance Amount:</span> <span className="font-bold">₹{getAdvanceAmount(room).toLocaleString()}</span></div>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Input label="Payment Amount*" name="amount" type="number" value={details.amount} onChange={handleChange} />
-      <Select label="Payment Method*" name="paymentMethod" value={details.paymentMethod} onChange={handleChange}>
-        <option>Online Payment</option>
-        <option>Cash</option>
-        <option>Bank Transfer</option>
-        <option>Cheque</option>
-      </Select>
-      <Select label="Payment Type*" name="paymentType" value={details.paymentType} onChange={handleChange}>
-        <option>Advance</option>
-        <option>Full Payment</option>
-      </Select>
-    </div>
+  return (
+    <div>
+      <h3 className="font-bold text-lg mb-2 text-center">Step 4: Payment Details</h3>
+      <div className="p-4 rounded-xl mb-4 bg-primary-purple/10 text-primary-purple">
+        <h4 className="font-bold mb-2">Payment Summary</h4>
+        <div className="flex justify-between text-sm"><span>Total Amount:</span> <span>₹{getPrice(room).toLocaleString()}</span></div>
+        <div className="flex justify-between text-sm"><span>Advance Amount:</span> <span className="font-bold">₹{getAdvanceAmount(room).toLocaleString()}</span></div>
+      </div>
 
-    {details.paymentMethod === 'Online Payment' && (
-      <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-        <div className="flex items-start">
-          <div className="mr-3 text-blue-500">
-            <CreditCard className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-medium text-blue-700">Online Payment via PayU</p>
-            <p className="text-sm text-blue-600 mt-1">
-              The student will be redirected to the PayU payment gateway to complete the payment securely.
-              You will receive a notification once the payment is completed.
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              If you encounter any payment gateway issues, you can switch to Cash or Bank Transfer payment method.
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Input label="Payment Amount*" name="amount" type="number" value={details.amount} onChange={handleChange} />
+        <Select label="Payment Method*" name="paymentMethod" value={details.paymentMethod} onChange={handleChange}>
+          <option>Online Payment</option>
+          <option>Cash</option>
+          <option>Bank Transfer</option>
+          <option>Cheque</option>
+        </Select>
+        <Select label="Payment Type*" name="paymentType" value={details.paymentType} onChange={handleChange}>
+          <option>Advance</option>
+          <option>Full Payment</option>
+        </Select>
+      </div>
+
+      {details.paymentMethod === 'Online Payment' && (
+        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-start">
+            <div className="mr-3 text-blue-500">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-medium text-blue-700">Online Payment via PayU</p>
+              <p className="text-sm text-blue-600 mt-1">
+                You’ll be redirected to PayU to complete the payment securely.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
-    <div className="mt-8 flex justify-between">
-      <Button onClick={onBack} variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
-      <Button
-        onClick={handlePaymentSubmit}
-        disabled={!details.amount || details.amount <= 0 || isProcessingPayment}
-        leftIcon={isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-      >
-        {isProcessingPayment ? 'Processing...' : details.paymentMethod === 'Online Payment' ? 'Proceed to Payment' : 'Create Booking'}
-      </Button>
+      <div className="mt-8 flex justify-between">
+        <Button onClick={onBack} variant="secondary" leftIcon={<ArrowLeft className="w-4 h-4" />}>Back</Button>
+        <Button
+          onClick={handlePaymentSubmit}
+          disabled={!details.amount || details.amount <= 0 || isProcessingPayment}
+          leftIcon={isProcessingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+        >
+          {isProcessingPayment ? 'Processing...' : details.paymentMethod === 'Online Payment' ? 'Proceed to Payment' : 'Create Booking'}
+        </Button>
+      </div>
     </div>
-  </div>
-}
+  );
+};
 
 export default BookingManagement;
