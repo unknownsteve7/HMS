@@ -18,11 +18,6 @@ const RoomCard = ({ room }) => {
     }, {});
   }, [allFacilities]);
 
-  const mapFacilityIdsToNames = (ids) => {
-    if (!Array.isArray(ids) || Object.keys(facilityMap).length === 0) return [];
-    return ids.map(id => facilityMap[id] || id).filter(Boolean);
-  };
-
   // Handle different API data structures
   const roomNumber = room.roomNumber || room.room_number || `Room ${room.id}`;
   const roomType = room.type || room.room_type || 'Standard';
@@ -35,10 +30,19 @@ const RoomCard = ({ room }) => {
   const advance = room.advanceAmount || room.advance_amount || Math.floor(price * 0.1);
 
   // Map facility IDs to names, with fallback to default facilities
-  const rawFacilities = room.facilities || [];
-  const facilities = Array.isArray(rawFacilities) && rawFacilities.length > 0 
-    ? mapFacilityIdsToNames(rawFacilities)
-    : []; // A room with no facilities should show none
+  const facilities = (room.facilities || []).map(f => {
+    if (!f) return null;
+    // If facility is an object with a name property
+    if (typeof f === 'object' && f.name) return f.name;
+    if (typeof f === 'object' && f.facility_name) return f.facility_name;
+    // If facility is a string (already a name or an ID)
+    if (typeof f === 'string') {
+      // Check if it's an ID in our map, otherwise use the string itself
+      return facilityMap[f] || f;
+    }
+    // If it's an ID that needs mapping
+    return facilityMap[f] || null;
+  }).filter(Boolean); // Filter out any null/undefined values
 
   const genderPreference = room.genderPreference || room.gender_preference || 'Mixed';
 
