@@ -36,6 +36,7 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
 
   const handlePaymentInitiation = async () => {
     if (!validatePayment()) {
+      showError('Please fix the payment amount');
       return;
     }
 
@@ -43,13 +44,6 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
 
     try {
       console.log('🚀 Initiating PayU payment for booking:', booking.booking_id);
-
-      // Show success toast before initiating payment
-      if (showSuccess) {
-        showSuccess('Redirecting to PayU gateway...');
-        // Small delay to ensure toast is shown
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
 
       // Call backend to initiate payment
       const paymentData = {
@@ -61,12 +55,42 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
       };
       
       console.log('💳 Payment data being sent:', paymentData);
-      
-      // Initiate payment - don't pass showSuccess to prevent duplicate toasts
-      await initiatePayUPayment(paymentData, authToken);
-      
+      const response = await initiatePayUPayment(paymentData, authToken);
+
+      if (response.success && response.payment_data) {
+        console.log('✅ Payment initiated successfully');
+        showSuccess('Redirecting to payment gateway...');
+
+        // Ensure URLs include transaction ID
+        if (response.payment_data.txnid) {
+          const txnid = response.payment_data.txnid;
+          // Ensure URLs have the txnid parameter
+          if (response.payment_data.surl && !response.payment_data.surl.includes('txnid=')) {
+            response.payment_data.surl += (response.payment_data.surl.includes('?') ? '&' : '?') + `txnid=${txnid}`;
+          }
+          if (response.payment_data.furl && !response.payment_data.furl.includes('txnid=')) {
+            response.payment_data.furl += (response.payment_data.furl.includes('?') ? '&' : '?') + `txnid=${txnid}`;
+          }
+        }
+
+        // Notify parent component
+        if (onPaymentInitiated) {
+          onPaymentInitiated(response);
+        }
+
+        // Small delay to show success message
+        setTimeout(() => {
+          // Redirect to PayU gateway
+          redirectToPayU(response.payment_data);
+        }, 1500);
+
+      } else {
+        throw new Error(response.message || 'Failed to initiate payment');
+      }
+
     } catch (error) {
-      console.error('Payment flow handled by backend:', error);
+      console.error('❌ Payment initiation failed:', error);
+      showError(error.message || 'Failed to initiate payment. Please try again.');
     } finally {
       setIsProcessing(false);
     }
