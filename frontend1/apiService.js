@@ -703,7 +703,7 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
   console.log('🔑 Request headers:', headers);
   
   try {
-    const response = await fetch(`${API_URL}/api/payments/initiate`, {  
+    const response = await apicall(`${API_URL}/api/payments/initiate`, {  
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -898,3 +898,4 @@ export const api = {
 };
 
 export default api;
+
