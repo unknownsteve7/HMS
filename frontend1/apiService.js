@@ -110,7 +110,7 @@ const apiCall = async (endpoint, options = {}) => {
       try {
         const errorJson = JSON.parse(errorText);
         console.error('❌ Parsed Error JSON:', errorJson);
-      } catch {}
+      } catch { }
       const err = new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       err.status = response.status;
       throw err;
@@ -652,12 +652,19 @@ export const createPayment = async (paymentData, authToken = null) => {
 
 /* ------------------------------ PayU Helpers ------------------------------ */
 
-export const initiatePayUPayment = async (paymentData, authToken = null) => {
+export const initiatePayUPayment = async (paymentData, authToken = null, showToast = null) => {
   console.log('💳 initiatePayUPayment called with data:', paymentData);
   console.log('🔑 Using auth token:', safeTokenLog(authToken));
 
   const headers = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  
+  // Show toast if showToast function is provided
+  if (typeof showToast === 'function') {
+    showToast('Redirecting to PayU gateway...', 'info');
+    // Add a small delay to ensure the toast is shown before the page redirects
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
 
   let payload;
   if (typeof paymentData === 'object' && paymentData.booking_id) {
@@ -678,29 +685,49 @@ export const initiatePayUPayment = async (paymentData, authToken = null) => {
   }
 
   console.log('📋 PayU payment payload:', payload);
-  const result = await apiCall('/api/payments/initiate', { method: 'POST', headers, body: JSON.stringify(payload) });
-  console.log('✅ PayU payment initiated successfully:', result);
+  try {
+    const response = await fetch(`${API_URL}/api/payments/initiate`, {
+      method: 'POST',
+      headers: { ...headers, 'Accept': 'text/html' },
+      body: JSON.stringify(payload)
+    });
+    
+    // Get the response as text first
+    const responseText = await response.text();
+    
+    // If response is not OK, try to parse as JSON for error details
+    if (!response.ok) {
+      try {
+        const error = JSON.parse(responseText);
+        throw new Error(error.detail);
+      } catch (e) {
+        console.error('Payment initiation failed with response:', responseText);
+        throw new Error('Payment processing failed. Please try again.');
+      }
+    }
+    
+    // If we get here, response is OK - process the HTML form
+    const html = responseText;
 
-  if (result?.payment_url) {
-    console.log('🚀 Redirecting to PayU payment URL:', result.payment_url);
-    window.location.href = result.payment_url;
-    return result;
+    // Create a temporary div to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // Find the form in the response
+    const form = tempDiv.querySelector('form');
+    if (!form) {
+      throw new Error('No payment form found in response');
+    }
+
+    // Submit the form automatically
+    document.body.appendChild(form);
+    form.submit();
+
+    return { status: 'redirecting' };
+  } catch (error) {
+    console.error('❌ Error initiating PayU payment:', error);
+    throw error;
   }
-
-  if (result?.payuForm) {
-    console.log('📝 Using PayU form redirect method');
-    redirectToPayU(result.payuForm);
-    return result;
-  }
-
-  if (result && (result.key || result.txnid)) {
-    console.log('📝 Creating PayU form from parameters');
-    redirectToPayU(result);
-    return result;
-  }
-
-  console.warn('⚠️ No payment URL or form data received from backend');
-  return result;
 };
 
 export const getPayUTransactionDetails = async (txnid, authToken = null) => {
@@ -722,7 +749,7 @@ export const getStudentPayUTransactions = async (authToken = null) => {
 };
 
 export const redirectToPayU = (paymentData) => {
-  console.log('🔄 Redirecting to PayU gateway:', paymentData);
+  console.log(' Redirecting to PayU gateway:', paymentData);
   try {
     sessionStorage.setItem('paymentInProgress', 'true');
     sessionStorage.setItem('paymentTxnId', paymentData.txnid || '');
@@ -768,7 +795,7 @@ export const redirectToPayU = (paymentData) => {
     console.log('✅ Form submitted to PayU gateway');
   } catch (error) {
     console.error('❌ Error redirecting to PayU:', error);
-    throw new Error('Failed to redirect to payment gateway');
+    throw error;
   }
 };
 
