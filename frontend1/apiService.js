@@ -703,53 +703,52 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
   console.log('🔑 Request headers:', headers);
   
   try {
-    const response = await apicall(`${API_URL}/api/payments/initiate`, {  
+    const response = await fetch(`${API_URL}/api/payments/initiate`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        'Accept': 'text/html',
+        'Accept': 'application/json', // Expect JSON response
         ...(authToken && { 'Authorization': `Bearer ${authToken}` })
       },
       body: JSON.stringify(payload)
     });
-    
+
     console.log('🔄 Received response status:', response.status, response.statusText);
-    
-    // Get the response as text first
-    const responseText = await response.text();
-    console.log('📄 Raw response text:', responseText);
-    
-    // If response is not OK, try to parse as JSON for error details
+
+    const responseData = await response.json();
+
     if (!response.ok) {
-      console.error('❌ Error response from server:', {
-        status: response.status,
-        statusText: response.statusText,
-        responseText
-      });
-      try {
-        const error = JSON.parse(responseText);
-        throw new Error(error.detail);
-      } catch (e) {
-        console.error('Payment initiation failed with response:', responseText);
-        throw new Error('Payment processing failed. Please try again.');
+      console.error('❌ Error response from server:', responseData);
+      throw new Error(responseData.detail || 'Payment initiation failed.');
+    }
+
+    console.log('✅ Received PayU data:', responseData);
+
+    const { action, params } = responseData;
+    if (!action || !params) {
+      throw new Error('Invalid payment initiation response from server.');
+    }
+
+    // Create a form dynamically
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.style.display = 'none'; // Hide the form
+
+    // Add parameters as hidden input fields
+    for (const key in params) {
+      if (params.hasOwnProperty(key)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = params[key];
+        form.appendChild(input);
       }
     }
-    
-    // If we get here, response is OK - process the HTML form
-    const html = responseText;
 
-    // Create a temporary div to parse the HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-
-    // Find the form in the response
-    const form = tempDiv.querySelector('form');
-    if (!form) {
-      throw new Error('No payment form found in response');
-    }
-
-    // Submit the form automatically
+    // Append the form to the body and submit
     document.body.appendChild(form);
+    console.log('🚀 Submitting dynamically created form to PayU...');
     form.submit();
 
     return { status: 'redirecting' };
@@ -898,4 +897,3 @@ export const api = {
 };
 
 export default api;
-
