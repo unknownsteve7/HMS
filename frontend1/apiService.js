@@ -666,6 +666,14 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
+  // Get the base URL for callbacks
+  const baseUrl = window.location.origin;
+  const successUrl = `${baseUrl}/payment/success`;
+  const failureUrl = `${baseUrl}/payment/failure`;
+
+  console.log('🔗 Success URL:', successUrl);
+  console.log('🔗 Failure URL:', failureUrl);
+
   let payload;
   if (typeof paymentData === 'object' && paymentData.booking_id) {
     payload = {
@@ -675,28 +683,49 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
       room_id: paymentData.room_id,
       cot_id: paymentData.cot_id,
       product_info: 'Hostel Room Booking - Sanskrithi School of Engineering',
+      // Add callback URLs to the payload
+      success_url: successUrl,
+      failure_url: failureUrl,
     };
   } else {
     payload = {
       booking_id: paymentData,
       amount: parseFloat(authToken), // legacy signature safety
       product_info: 'Hostel Room Booking - Sanskrithi School of Engineering',
+      // Add callback URLs to the payload
+      success_url: successUrl,
+      failure_url: failureUrl,
     };
   }
 
   console.log('📋 PayU payment payload:', payload);
+  console.log('🌐 Sending request to:', `${API_URL}/api/payments/initiate`);
+  console.log('🔑 Request headers:', headers);
+  
   try {
-    const response = await fetch(`${API_URL}/api/payments/initiate`, {
+    const response = await fetch(`${API_URL}/api/payments/initiate`, {  
       method: 'POST',
-      headers: { ...headers, 'Accept': 'text/html' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'text/html',
+        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+      },
       body: JSON.stringify(payload)
     });
     
+    console.log('🔄 Received response status:', response.status, response.statusText);
+    
     // Get the response as text first
     const responseText = await response.text();
+    console.log('📄 Raw response text:', responseText);
     
     // If response is not OK, try to parse as JSON for error details
     if (!response.ok) {
+      console.error('❌ Error response from server:', {
+        status: response.status,
+        statusText: response.statusText,
+        responseText
+      });
       try {
         const error = JSON.parse(responseText);
         throw new Error(error.detail);
@@ -746,6 +775,31 @@ export const getStudentPayUTransactions = async (authToken = null) => {
   const result = await apiCall('/payments/student/transactions', { method: 'GET', headers });
   console.log('✅ Student PayU transactions fetched:', result);
   return result;
+};
+
+// Handle PayU success callback
+export const handlePayUSuccess = async (txnid, authToken = null) => {
+  console.log('🔄 Handling PayU success callback for txnid:', txnid);
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  
+  try {
+    const result = await apiCall(`/api/payments/transaction/${txnid}`, { 
+      method: 'GET', 
+      headers 
+    });
+    console.log('✅ PayU transaction details:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Error fetching PayU transaction:', error);
+    throw error;
+  }
+};
+
+// Handle PayU failure callback
+export const handlePayUFailure = async (txnid, authToken = null) => {
+  console.log('❌ Handling PayU failure callback for txnid:', txnid);
+  return { status: 'failed', txnid };
 };
 
 export const redirectToPayU = (paymentData) => {
