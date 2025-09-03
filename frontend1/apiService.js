@@ -666,14 +666,6 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
     await new Promise(resolve => setTimeout(resolve, 500));
   }
 
-  // Get the base URL for callbacks
-  const baseUrl = window.location.origin;
-  const successUrl = `${baseUrl}/payment/success`;
-  const failureUrl = `${baseUrl}/payment/failure`;
-
-  console.log('🔗 Success URL:', successUrl);
-  console.log('🔗 Failure URL:', failureUrl);
-
   let payload;
   if (typeof paymentData === 'object' && paymentData.booking_id) {
     payload = {
@@ -683,72 +675,52 @@ export const initiatePayUPayment = async (paymentData, authToken = null, showToa
       room_id: paymentData.room_id,
       cot_id: paymentData.cot_id,
       product_info: 'Hostel Room Booking - Sanskrithi School of Engineering',
-      // Add callback URLs to the payload
-      success_url: successUrl,
-      failure_url: failureUrl,
     };
   } else {
     payload = {
       booking_id: paymentData,
       amount: parseFloat(authToken), // legacy signature safety
       product_info: 'Hostel Room Booking - Sanskrithi School of Engineering',
-      // Add callback URLs to the payload
-      success_url: successUrl,
-      failure_url: failureUrl,
     };
   }
 
   console.log('📋 PayU payment payload:', payload);
-  console.log('🌐 Sending request to:', `${API_URL}/api/payments/initiate`);
-  console.log('🔑 Request headers:', headers);
-  
   try {
     const response = await fetch(`${API_URL}/api/payments/initiate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json', // Expect JSON response
-        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
-      },
+      headers: { ...headers, 'Accept': 'text/html' },
       body: JSON.stringify(payload)
     });
-
-    console.log('🔄 Received response status:', response.status, response.statusText);
-
-    const responseData = await response.json();
-
+    
+    // Get the response as text first
+    const responseText = await response.text();
+    
+    // If response is not OK, try to parse as JSON for error details
     if (!response.ok) {
-      console.error('❌ Error response from server:', responseData);
-      throw new Error(responseData.detail || 'Payment initiation failed.');
-    }
-
-    console.log('✅ Received PayU data:', responseData);
-
-    const { action, params } = responseData;
-    if (!action || !params) {
-      throw new Error('Invalid payment initiation response from server.');
-    }
-
-    // Create a form dynamically
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = action;
-    form.style.display = 'none'; // Hide the form
-
-    // Add parameters as hidden input fields
-    for (const key in params) {
-      if (params.hasOwnProperty(key)) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = params[key];
-        form.appendChild(input);
+      try {
+        const error = JSON.parse(responseText);
+        throw new Error(error.detail);
+      } catch (e) {
+        console.error('Payment initiation failed with response:', responseText);
+        throw new Error('Payment processing failed. Please try again.');
       }
     }
+    
+    // If we get here, response is OK - process the HTML form
+    const html = responseText;
 
-    // Append the form to the body and submit
+    // Create a temporary div to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // Find the form in the response
+    const form = tempDiv.querySelector('form');
+    if (!form) {
+      throw new Error('No payment form found in response');
+    }
+
+    // Submit the form automatically
     document.body.appendChild(form);
-    console.log('🚀 Submitting dynamically created form to PayU...');
     form.submit();
 
     return { status: 'redirecting' };
@@ -774,31 +746,6 @@ export const getStudentPayUTransactions = async (authToken = null) => {
   const result = await apiCall('/payments/student/transactions', { method: 'GET', headers });
   console.log('✅ Student PayU transactions fetched:', result);
   return result;
-};
-
-// Handle PayU success callback
-export const handlePayUSuccess = async (txnid, authToken = null) => {
-  console.log('🔄 Handling PayU success callback for txnid:', txnid);
-  const headers = { 'Content-Type': 'application/json' };
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  
-  try {
-    const result = await apiCall(`/api/payments/transaction/${txnid}`, { 
-      method: 'GET', 
-      headers 
-    });
-    console.log('✅ PayU transaction details:', result);
-    return result;
-  } catch (error) {
-    console.error('❌ Error fetching PayU transaction:', error);
-    throw error;
-  }
-};
-
-// Handle PayU failure callback
-export const handlePayUFailure = async (txnid, authToken = null) => {
-  console.log('❌ Handling PayU failure callback for txnid:', txnid);
-  return { status: 'failed', txnid };
 };
 
 export const redirectToPayU = (paymentData) => {
