@@ -163,7 +163,7 @@ const PaymentStatus = ({ type = 'success' }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Date:</span>
-                  <span className="font-medium">{new Date(transactionDetails?.created_at || Date.now()).toLocaleString()}</span>
+                  <span className="font-medium">{new Date(transactionDetails?.created_at || Date.now())}</span>
                 </div>
                 {transactionDetails?.hash_verified && (
                   <div className="flex justify-between pt-3 mt-3 border-t">
@@ -202,4 +202,5 @@ const PaymentStatus = ({ type = 'success' }) => {
 };
 
 export default PaymentStatus;
+
 
