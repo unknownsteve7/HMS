@@ -10,13 +10,13 @@ import { CreditCard, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
   const { authToken } = useAppContext();
   const { showSuccess, showError, showWarning } = useToast();
-  const [paymentAmount, setPaymentAmount] = useState(booking?.pending_balance || 0);
+  const [paymentAmount, setPaymentAmount] = useState(Math.min(5000, booking?.pending_balance || 0));
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState({});
 
   // Calculate payment details
   const pendingBalance = booking?.pending_balance || 0;
-  const minPayment = Math.min(1, pendingBalance); // Minimum ₹1000 or pending balance
+  const minPayment = Math.min(5000, pendingBalance); // Minimum ₹5000 or pending balance
   const maxPayment = pendingBalance;
 
   const validatePayment = () => {
@@ -53,7 +53,7 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
         room_id: booking.room_id || booking.room?.room_id,
         cot_id: booking.cot_id
       };
-      
+
       console.log('💳 Payment data being sent:', paymentData);
       const response = await initiatePayUPayment(paymentData, authToken);
 
