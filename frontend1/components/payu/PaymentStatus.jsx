@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { getPayUTransactionDetails } from '../../apiService';
@@ -19,6 +19,7 @@ const PaymentStatus = ({ type = 'success' }) => {
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const cardRef = useRef(null); // Ref to track the card element
 
   // Debug: Log all URL parameters and current URL
   console.log('🔍 PaymentStatus - All URL parameters:', Object.fromEntries(searchParams));
@@ -61,28 +62,44 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   // Function to generate and download PDF
   const downloadPDF = async () => {
-    const element = document.getElementById('payment-card');
+    const element = cardRef.current;
     if (!element) {
-      console.error('Payment card element not found');
-      setError('Failed to generate receipt PDF. Please try again.');
+      console.error('Payment card element not found in DOM');
+      setError('Failed to generate receipt PDF: Card element not found. Please try again.');
       return;
     }
 
     try {
-      // Temporarily adjust styles for better PDF rendering
+      // Ensure DOM is fully rendered
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Temporarily hide buttons and support contact for cleaner PDF
+      const buttons = element.querySelector('.action-buttons');
+      const support = element.querySelector('.support-contact');
+      if (buttons) buttons.style.display = 'none';
+      if (support) support.style.display = 'none';
+
+      // Set explicit background color to match status
       const originalStyle = element.style.backgroundColor;
-      element.style.backgroundColor = getStatusColor().includes('bg-green-50') ? '#f0fdf4' : getStatusColor().includes('bg-red-50') ? '#fef2f2' : '#fefce8';
+      element.style.backgroundColor = getStatusColor().includes('bg-green-50')
+        ? '#f0fdf4'
+        : getStatusColor().includes('bg-red-50')
+        ? '#fef2f2'
+        : '#fefce8';
 
       const canvas = await html2canvas(element, {
-        scale: 2, // Increase resolution
-        useCORS: true,
-        backgroundColor: null, // Preserve the card's background color
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        scale: 2, // Higher resolution
+        useCORS: true, // Handle external resources
+        backgroundColor: null, // Preserve card background
+        logging: true, // Enable logging for debugging
+        windowWidth: document.body.scrollWidth,
+        windowHeight: document.body.scrollHeight,
       });
 
-      // Restore original style
+      // Restore original styles
       element.style.backgroundColor = originalStyle;
+      if (buttons) buttons.style.display = '';
+      if (support) support.style.display = '';
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -91,14 +108,22 @@ const PaymentStatus = ({ type = 'success' }) => {
         format: 'a4',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // Add margins
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // 10mm margins
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
-      pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid}.pdf`);
+      // Check if content fits on one page; if not, scale down
+      const maxPdfHeight = pdf.internal.pageSize.getHeight() - 20;
+      if (pdfHeight > maxPdfHeight) {
+        const scaleFactor = maxPdfHeight / pdfHeight;
+        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth * scaleFactor, pdfHeight * scaleFactor);
+      } else {
+        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
+      }
+
+      pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid || 'unknown'}.pdf`);
     } catch (err) {
       console.error('Failed to generate PDF:', err);
-      setError('Failed to generate receipt PDF. Please try again.');
+      setError(`Failed to generate receipt PDF: ${err.message}. Please try again.`);
     }
   };
 
@@ -308,7 +333,7 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Card id="payment-card" className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
+      <Card ref={cardRef} id="payment-card" className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
         <div className="text-center py-8">
           <div className="flex justify-center mb-6">{getStatusIcon()}</div>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{getStatusTitle()}</h1>
@@ -392,7 +417,7 @@ const PaymentStatus = ({ type = 'success' }) => {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="action-buttons flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               variant="secondary"
               onClick={() => navigate('/student/my-bookings')}
@@ -421,7 +446,7 @@ const PaymentStatus = ({ type = 'success' }) => {
             )}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="support-contact mt-8 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-600">
               Need help? Contact support at{' '}
               <a href="mailto:support@sanskrithi.edu" className="text-blue-600 hover:underline">
