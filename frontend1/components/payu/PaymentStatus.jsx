@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { getPayUTransactionDetails } from '../../apiService';
@@ -19,7 +19,6 @@ const PaymentStatus = ({ type = 'success' }) => {
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const cardRef = useRef(null);
 
   // Debug: Log all URL parameters and current URL
   console.log('🔍 PaymentStatus - All URL parameters:', Object.fromEntries(searchParams));
@@ -62,57 +61,18 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   // Function to generate and download PDF
   const downloadPDF = async () => {
-    console.log('📸 Attempting to capture card for PDF');
-    const element = cardRef.current || document.getElementById('payment-card');
+    const element = document.getElementById('transaction-details');
     if (!element) {
-      console.error('Payment card element not found in DOM', {
-        cardRef: cardRef.current,
-        idElement: document.getElementById('payment-card'),
-        loadingState: loading,
-        hasTxnid: !!txnid,
-      });
-      setError('Failed to generate receipt PDF: Card element not found. Please ensure the payment details are loaded and try again.');
+      console.error('Transaction details element not found');
       return;
     }
 
-    console.log('✅ Card element found:', element);
-
     try {
-      // Wait for DOM to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Temporarily hide buttons and support contact
-      const buttons = element.querySelector('.action-buttons');
-      const support = element.querySelector('.support-contact');
-      const originalButtonDisplay = buttons ? buttons.style.display : '';
-      const originalSupportDisplay = support ? support.style.display : '';
-      if (buttons) buttons.style.display = 'none';
-      if (support) support.style.display = 'none';
-
-      // Set explicit background color
-      const originalStyle = element.style.backgroundColor;
-      element.style.backgroundColor = getStatusColor().includes('bg-green-50')
-        ? '#f0fdf4'
-        : getStatusColor().includes('bg-red-50')
-        ? '#fef2f2'
-        : '#fefce8';
-
-      console.log('📷 Capturing with html2canvas...');
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 2, // Increase resolution
         useCORS: true,
-        backgroundColor: null,
-        logging: true,
-        windowWidth: document.body.scrollWidth,
-        windowHeight: document.body.scrollHeight,
+        backgroundColor: '#ffffff',
       });
-
-      console.log('✅ Canvas captured:', canvas.width, 'x', canvas.height);
-
-      // Restore styles
-      element.style.backgroundColor = originalStyle;
-      if (buttons) buttons.style.display = originalButtonDisplay;
-      if (support) support.style.display = originalSupportDisplay;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -121,27 +81,15 @@ const PaymentStatus = ({ type = 'success' }) => {
         format: 'a4',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      const maxPdfHeight = pdf.internal.pageSize.getHeight() - 20;
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      console.log('📄 Generating PDF with dimensions:', pdfWidth, 'x', pdfHeight);
-
-      if (pdfHeight > maxPdfHeight) {
-        const scaleFactor = maxPdfHeight / pdfHeight;
-        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth * scaleFactor, pdfHeight * scaleFactor);
-      } else {
-        pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
-      }
-
-      pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid || 'unknown'}.pdf`);
-      console.log('✅ PDF generated and saved');
+      pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight);
+      pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid}.pdf`);
     } catch (err) {
-      console.error('Failed to generate PDF:', err, {
-        stack: err.stack,
-        elementPresent: !!element,
-      });
-      setError(`Failed to generate receipt PDF: ${err.message}. Please try again or contact support.`);
+      console.error('Failed to generate PDF:', err);
+      setError('Failed to generate receipt PDF. Please try again.');
     }
   };
 
@@ -351,14 +299,14 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Card ref={cardRef} id="payment-card" className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
+      <Card className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
         <div className="text-center py-8">
           <div className="flex justify-center mb-6">{getStatusIcon()}</div>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{getStatusTitle()}</h1>
           <p className="text-lg text-gray-600 mb-8">{getStatusMessage()}</p>
 
           {(transactionDetails || txnid) && (
-            <div className="bg-white rounded-lg p-6 mb-8 text-left">
+            <div id="transaction-details" className="bg-white rounded-lg p-6 mb-8 text-left">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Details</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
@@ -435,7 +383,7 @@ const PaymentStatus = ({ type = 'success' }) => {
             </div>
           )}
 
-          <div className="action-buttons flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               variant="secondary"
               onClick={() => navigate('/student/my-bookings')}
@@ -444,7 +392,7 @@ const PaymentStatus = ({ type = 'success' }) => {
               Back to My Bookings
             </Button>
 
-            {actualType === 'success' && (transactionDetails || bookingId) && !loading && (
+            {actualType === 'success' && (transactionDetails || bookingId) && (
               <Button
                 variant="primary"
                 onClick={downloadPDF}
@@ -454,7 +402,7 @@ const PaymentStatus = ({ type = 'success' }) => {
               </Button>
             )}
 
-            {actualType === 'failure' && bookingId && !loading && (
+            {actualType === 'failure' && bookingId && (
               <Button
                 variant="primary"
                 onClick={() => navigate(`/student/my-bookings?retry_payment=${bookingId}`)}
@@ -464,7 +412,7 @@ const PaymentStatus = ({ type = 'success' }) => {
             )}
           </div>
 
-          <div className="support-contact mt-8 pt-6 border-t border-gray-200">
+          <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-600">
               Need help? Contact support at{' '}
               <a href="mailto:support@sanskrithi.edu" className="text-blue-600 hover:underline">
