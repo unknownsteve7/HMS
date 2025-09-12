@@ -1,3 +1,15 @@
+// GET /admin/dashboard/summary - returns admin metrics
+export const getAdminDashboardSummary = async (token = null) => {
+  const headers = setAuthHeader({}, token);
+  const response = await fetch(`${API_URL}/admin/dashboard/summary`, {
+    method: 'GET',
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch admin dashboard summary');
+  }
+  return await response.json();
+};
 // This file contains a collection of simple JavaScript functions for making API calls.
 // It should not contain any React-specific code like hooks (e.g., useState, useEffect, useCallback).
 
@@ -1344,4 +1356,5 @@ const api = {
 };
 
 export default api;
+
 
