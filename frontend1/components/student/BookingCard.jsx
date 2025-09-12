@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { cancelBooking } from "../../apiService";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import StatusTag from "../ui/StatusTag";
@@ -10,6 +11,8 @@ import { CreditCard } from "lucide-react";
 
 const BookingCard = ({ booking }) => {
   // Log the booking object to see its structure
+  const { authToken, fetchBookings } = useAppContext();
+  const [isCancelling, setIsCancelling] = useState(false);
   console.log("BookingCard received booking:", booking);
 
   // Use embedded room data from booking object instead of searching context
@@ -168,20 +171,20 @@ const BookingCard = ({ booking }) => {
                 {(() => {
                   try {
                     if (!Array.isArray(room.facilities)) return null;
-                    
+
                     const facilityIcons = [];
                     const addedIcons = new Set();
-                    
+
                     // First pass: Look for exact matches
                     room.facilities.some(facility => {
                       if (!facility) return false;
                       const name = String(
-                        typeof facility === 'string' ? facility : 
-                        facility.name || facility.facility_name || ''
+                        typeof facility === 'string' ? facility :
+                          facility.name || facility.facility_name || ''
                       ).toLowerCase().trim();
-                      
+
                       if (!name) return false;
-                      
+
                       if (name.includes('fan') && !addedIcons.has('fan')) {
                         facilityIcons.push(<Fan key="fan" size={18} />);
                         addedIcons.add('fan');
@@ -192,10 +195,10 @@ const BookingCard = ({ booking }) => {
                         facilityIcons.push(<Wifi key="wifi" size={18} />);
                         addedIcons.add('wifi');
                       }
-                      
+
                       return facilityIcons.length >= 3; // Max 3 icons
                     });
-                    
+
                     return facilityIcons;
                   } catch (error) {
                     console.error('Error rendering facilities:', error);
@@ -249,10 +252,21 @@ const BookingCard = ({ booking }) => {
           {!isCancelled && booking.total_payment_status !== "Completed" && (
             <Button
               variant="destructive"
-
               className="w-full bg-red text-white hover:bg-red-50"
+              disabled={isCancelling}
+              onClick={async () => {
+                setIsCancelling(true);
+                try {
+                  await cancelBooking(booking.booking_id, authToken);
+                  if (fetchBookings) await fetchBookings();
+                } catch (err) {
+                  alert("Failed to cancel booking. Please try again.");
+                } finally {
+                  setIsCancelling(false);
+                }
+              }}
             >
-              Cancel
+              {isCancelling ? "Cancelling..." : "Cancel"}
             </Button>
           )}
         </div>
