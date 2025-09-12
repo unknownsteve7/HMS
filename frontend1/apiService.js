@@ -977,7 +977,7 @@ export const getAllStudents = async (authToken = null) => {
     console.log('🔐 getAllStudents using auth headers:', headers);
 
     try {
-      const result = await apiCall('/students', {
+      const result = await apiCall('/students/', {
         method: 'GET',
         headers: headers,
       });
@@ -1344,3 +1344,4 @@ const api = {
 };
 
 export default api;
+
