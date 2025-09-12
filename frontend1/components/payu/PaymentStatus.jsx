@@ -61,18 +61,28 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   // Function to generate and download PDF
   const downloadPDF = async () => {
-    const element = document.getElementById('transaction-details');
+    const element = document.getElementById('payment-card');
     if (!element) {
-      console.error('Transaction details element not found');
+      console.error('Payment card element not found');
+      setError('Failed to generate receipt PDF. Please try again.');
       return;
     }
 
     try {
+      // Temporarily adjust styles for better PDF rendering
+      const originalStyle = element.style.backgroundColor;
+      element.style.backgroundColor = getStatusColor().includes('bg-green-50') ? '#f0fdf4' : getStatusColor().includes('bg-red-50') ? '#fef2f2' : '#fefce8';
+
       const canvas = await html2canvas(element, {
         scale: 2, // Increase resolution
         useCORS: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: null, // Preserve the card's background color
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
       });
+
+      // Restore original style
+      element.style.backgroundColor = originalStyle;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -81,11 +91,10 @@ const PaymentStatus = ({ type = 'success' }) => {
         format: 'a4',
       });
 
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // Add margins
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight);
+      pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
       pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid}.pdf`);
     } catch (err) {
       console.error('Failed to generate PDF:', err);
@@ -299,14 +308,14 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Card className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
+      <Card id="payment-card" className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
         <div className="text-center py-8">
           <div className="flex justify-center mb-6">{getStatusIcon()}</div>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{getStatusTitle()}</h1>
           <p className="text-lg text-gray-600 mb-8">{getStatusMessage()}</p>
 
           {(transactionDetails || txnid) && (
-            <div id="transaction-details" className="bg-white rounded-lg p-6 mb-8 text-left">
+            <div className="bg-white rounded-lg p-6 mb-8 text-left">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Details</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
