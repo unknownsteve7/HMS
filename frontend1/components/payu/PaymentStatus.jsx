@@ -325,7 +325,8 @@ const downloadPDF = async () => {
 
         return (
                 <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                        <Card className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
+                        <Card ref={cardRef}
+                                className={`max-w-2xl w-full mx-4 border-2 ${getStatusColor()}`}>
                                 <div className="text-center py-8">
                                         {/* Status Icon */}
                                         <div className="flex justify-center mb-6">
@@ -470,4 +471,5 @@ const downloadPDF = async () => {
 };
 
 export default PaymentStatus;
+
 
