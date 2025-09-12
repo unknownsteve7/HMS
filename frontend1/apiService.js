@@ -1,3 +1,17 @@
+// Cancel a booking for the current user
+export async function cancelBooking(bookingId, authToken) {
+  const response = await fetch(`${API_URL}/bookings/me/${bookingId}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+    }
+  });
+  if (!response.ok) {
+    throw new Error('Failed to cancel booking');
+  }
+  return response.json();
+}
 // GET /admin/dashboard/summary - returns admin metrics
 export const getAdminDashboardSummary = async (token = null) => {
   const headers = setAuthHeader({}, token);
@@ -1356,5 +1370,6 @@ const api = {
 };
 
 export default api;
+
 
 
