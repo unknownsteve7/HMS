@@ -7,7 +7,7 @@ import { MapPin, Bed, Fan, Wifi, Bath, Users, IndianRupee } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 const RoomCard = ({ room }) => {
-  const { facilities: allFacilities, loading } = useAppContext();
+  const { facilities: allFacilities, loading, currentUser } = useAppContext();
   const facilitiesLoading = loading?.facilities;
 
   const facilityMap = React.useMemo(() => {
@@ -45,6 +45,12 @@ const RoomCard = ({ room }) => {
   }).filter(Boolean); // Filter out any null/undefined values
 
   const genderPreference = room.genderPreference || room.gender_preference || 'Mixed';
+  const userGender = currentUser?.gender || currentUser?.Gender || null;
+
+  // Only show room if gender matches or is Mixed
+  if (genderPreference !== 'Mixed' && userGender && genderPreference.toLowerCase() !== userGender.toLowerCase()) {
+    return null;
+  }
 
 
   return (
