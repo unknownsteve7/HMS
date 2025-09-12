@@ -13,27 +13,22 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, isAuthenticated, userRole } = useAppContext();
+  const { login, isAuthenticated, userRole, currentUser } = useAppContext();
 
 
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && userRole) {
-      console.log('🔄 User already authenticated, redirecting...', { userRole });
-
-      // Add a small delay to ensure context is fully updated
-      setTimeout(() => {
-        if (userRole === 'admin') {
-          console.log('🚀 Redirecting to admin dashboard');
-          navigate('/', { replace: true });
-        } else {
-          console.log('🚀 Redirecting to student dashboard');
-          navigate('/student/dashboard', { replace: true });
-        }
-      }, 300);
+    if (isAuthenticated && userRole && currentUser) {
+      console.log('🔄 User authenticated and profile loaded, redirecting...', { userRole, currentUser });
+      // Only navigate when context is fully ready
+      if (userRole === 'admin') {
+        navigate('/', { replace: true });
+      } else {
+        navigate('/student/dashboard', { replace: true });
+      }
     }
-  }, [isAuthenticated, userRole, navigate]);
+  }, [isAuthenticated, userRole, currentUser, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -45,28 +40,15 @@ const Login = () => {
 
       const response = await login({ email, pass: password }, activeTab);
       console.log('✅ Login successful:', response);
-
-      // Wait a moment for state to be updated
-      setTimeout(() => {
-        console.log('🧭 Navigating after login:', {
-          isAuthenticated: true,
-          userRole: activeTab,
-          navigatingTo: activeTab === 'admin' ? '/' : '/student/dashboard'
-        });
-
-        // Navigation will be handled by the useEffect above
-        // But we can also navigate here as a fallback
-        if (activeTab === 'admin') {
-          navigate('/', { replace: true });
-        } else {
-          navigate('/student/dashboard', { replace: true });
-        }
-      }, 500);
     } catch (err) {
       console.error('❌ Login failed:', err);
       setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
+      // Always reload after login attempt, success or error
+      setTimeout(() => {
+        window.location.reload();
+      }, 50);
     }
   };
 
@@ -74,7 +56,8 @@ const Login = () => {
     localStorage.clear();
     sessionStorage.clear();
     console.log('🧹 Application cache cleared');
-    window.location.reload();
+    // Instead of reload, navigate to login and let context re-initialize
+    navigate('/login', { replace: true });
   };
 
   const tabStyle = "px-4 py-2 font-semibold text-center w-1/2 cursor-pointer transition-all duration-300 rounded-t-lg";
@@ -88,61 +71,62 @@ const Login = () => {
         <h1 className="text-3xl font-bold text-center text-primary-purple">Welcome Back</h1>
         <p className="text-center text-text-medium mt-1 mb-6">Sign in to your account</p>
 
-        <div className="flex border-b border-subtle-border mb-6">
-          <div onClick={() => setActiveTab('student')} className={`${tabStyle} ${activeTab === 'student' ? activeTabStyle : inactiveTabStyle}`}>
-            Student
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-purple mb-4"></div>
+            <p className="text-lg text-primary-purple font-semibold">Signing In...</p>
+            <p className="text-sm text-text-medium mt-2">Please wait while we load your profile.</p>
           </div>
-          <div onClick={() => setActiveTab('admin')} className={`${tabStyle} ${activeTab === 'admin' ? activeTabStyle : inactiveTabStyle}`}>
-            Admin
-          </div>
-        </div>
-
-
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <Input
-            label="Email Address"
-            id="email"
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            label="Password"
-            id="password"
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600 text-center">{error}</p>
+        ) : (
+          <>
+            <div className="flex border-b border-subtle-border mb-6">
+              <div onClick={() => setActiveTab('student')} className={`${tabStyle} ${activeTab === 'student' ? activeTabStyle : inactiveTabStyle}`}>
+                Student
+              </div>
+              <div onClick={() => setActiveTab('admin')} className={`${tabStyle} ${activeTab === 'admin' ? activeTabStyle : inactiveTabStyle}`}>
+                Admin
+              </div>
             </div>
-          )}
-          <Button type="submit" className="w-full !py-3 !text-base" disabled={isLoading}>
-            {isLoading ? 'Signing In...' : 'Sign In'}
-          </Button>
-        </form>
 
+            <form onSubmit={handleLogin} className="space-y-6">
+              <Input
+                label="Email Address"
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                label="Password"
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
+              <Button type="submit" className="w-full !py-3 !text-base" disabled={isLoading}>
+                Sign In
+              </Button>
+            </form>
 
+            {activeTab === 'student' && (
+              <p className="text-center text-sm text-text-medium mt-6">
+                Don't have an account? <Link to="/register" className="font-semibold text-primary-purple hover:underline">Register here</Link>
+              </p>
+            )}
 
-        {activeTab === 'student' && (
-          <p className="text-center text-sm text-text-medium mt-6">
-            Don't have an account? <Link to="/register" className="font-semibold text-primary-purple hover:underline">Register here</Link>
-          </p>
+            <button
+              type="button"
+              onClick={handleResetApp}
+              className="mt-4 text-sm text-gray-500 hover:text-gray-700"
+            >
+              Having trouble? Reset application
+            </button>
+          </>
         )}
-
-        <button
-          type="button"
-          onClick={handleResetApp}
-          className="mt-4 text-sm text-gray-500 hover:text-gray-700"
-        >
-          Having trouble? Reset application
-        </button>
       </Card>
     </AuthLayout>
   );
