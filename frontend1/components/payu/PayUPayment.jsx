@@ -1,210 +1,257 @@
-import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { getPayUTransactionDetails, API_URL } from '../../apiService';
-import Card from '../ui/Card';
+import { useToast } from '../../context/ToastContext';
+import { initiatePayUPayment, redirectToPayU } from '../../apiService';
 import Button from '../ui/Button';
-import Spinner from '../ui/Spinner';
-import { CheckCircle, XCircle, AlertCircle, ArrowLeft, Download } from 'lucide-react';
+import Input from '../ui/Input';
+import Modal from '../ui/Modal';
+import { CreditCard, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
-/**
- * A reusable component to display the status of a payment (success, failure, or pending)
- * after the user returns from the PayU payment gateway.
- */
-const PaymentStatus = ({ type = 'success' }) => {
-        const [searchParams] = useSearchParams();
-        const navigate = useNavigate();
-        const { authToken, fetchBookings } = useAppContext(); // Context for auth and data refresh
-        const [transactionDetails, setTransactionDetails] = useState(null);
-        const [loading, setLoading] = useState(true);
-        const [error, setError] = useState(null);
+const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
+  const { authToken } = useAppContext();
+  const { showSuccess, showError, showWarning } = useToast();
+  const [paymentAmount, setPaymentAmount] = useState(booking?.pending_balance || 0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errors, setErrors] = useState({});
 
-        // --- Step 1: Prevent Form Resubmission on Refresh ---
-        // This effect checks if the user arrived via a POST redirect from PayU.
-        // If so, it replaces the URL with a clean GET request to prevent the
-        // "Confirm Form Resubmission" browser dialog on page refresh.
-        useEffect(() => {
-                // Check for direct navigation, which happens after a POST redirect
-                if (window.performance && window.performance.navigation.type === 0) {
-                        const handled = sessionStorage.getItem('paymentRedirectHandled');
-                        if (!handled) {
-                                console.log('🔄 Converting POST redirect to a clean GET URL...');
-                                sessionStorage.setItem('paymentRedirectHandled', 'true');
+  // Calculate payment details
+  const pendingBalance = booking?.pending_balance || 0;
+  const minPayment = Math.min(1, pendingBalance); // Minimum ₹1000 or pending balance
+  const maxPayment = pendingBalance;
 
-                                // Preserve all existing URL parameters and add a cache-buster
-                                const currentParams = new URLSearchParams(searchParams);
-                                currentParams.set('_cb', Date.now()); // Cache-busting parameter
+  const validatePayment = () => {
+    const newErrors = {};
 
-                                navigate({
-                                        pathname: window.location.pathname,
-                                        search: currentParams.toString()
-                                }, { replace: true });
-                        }
-                } else {
-                        // Clear the flag on normal page loads or reloads
-                        sessionStorage.removeItem('paymentRedirectHandled');
-                }
-        }, [navigate, searchParams]);
+    if (!paymentAmount || paymentAmount <= 0) {
+      newErrors.amount = 'Payment amount is required';
+    } else if (paymentAmount < minPayment) {
+      newErrors.amount = `Minimum payment amount is ₹${minPayment}`;
+    } else if (paymentAmount > maxPayment) {
+      newErrors.amount = `Payment amount cannot exceed pending balance of ₹${maxPayment}`;
+    }
 
-        // --- Step 2: Extract All Relevant Data from URL ---
-        const txnid = searchParams.get('txnid');
-        const bookingId = searchParams.get('booking_id') || searchParams.get('udf1'); // UDF1 is a common fallback
-        const status = searchParams.get('status');
-        const amount = searchParams.get('amount');
-        const mihpayid = searchParams.get('mihpayid'); // PayU's own ID
-        const errorMsg = searchParams.get('error') || searchParams.get('error_Message');
-        const firstname = searchParams.get('firstname');
-        const email = searchParams.get('email');
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-        // Determine the final status, prioritizing transactionDetails.status if available, then URL param
-        const failureStatuses = ['failure', 'failed', 'FAILURE', 'Failed', 'Payment Failed', 'error'];
-        let finalStatus = status;
-        if (transactionDetails && transactionDetails.status) {
-                finalStatus = transactionDetails.status;
-        }
-        const actualType = failureStatuses.includes((finalStatus || '').trim()) ? 'failure' : 'success';
+  const handlePaymentInitiation = async () => {
+    if (!validatePayment()) {
+      showError('Please fix the payment amount');
+      return;
+    }
 
-        // --- Step 3: Fetch Full Transaction Details from Backend ---
-        useEffect(() => {
-                const fetchTransactionDetails = async () => {
-                        if (!txnid) {
-                                setError('No transaction data found. This page should be accessed after a payment attempt.');
-                                setLoading(false);
-                                return;
-                        }
+    setIsProcessing(true);
 
-                        console.log(`📝 Fetching details for transaction ID: ${txnid}`);
-                        try {
-                                const details = await getPayUTransactionDetails(txnid, authToken);
-                                console.log('✅ Full transaction details fetched:', details);
-                                setTransactionDetails(details);
+    try {
+      console.log('🚀 Initiating PayU payment for booking:', booking.booking_id);
 
-                                // After fetching, if the payment was successful, refresh the user's booking list
-                                if (details.status === 'success' && typeof fetchBookings === 'function') {
-                                        console.log("🔄 Refreshing user's bookings after successful payment...");
-                                        await fetchBookings();
-                                }
+      // Call backend to initiate payment
+      const paymentData = {
+        booking_id: booking.booking_id || booking.id,
+        student_id: booking.student_id || booking.student?.student_id,
+        amount: paymentAmount,
+        room_id: booking.room_id || booking.room?.room_id,
+        cot_id: booking.cot_id
+      };
+      
+      console.log('💳 Payment data being sent:', paymentData);
+      const response = await initiatePayUPayment(paymentData, authToken);
 
-                        } catch (err) {
-                                console.error('❌ Failed to fetch transaction details:', err);
-                                setError(`Could not verify transaction details. Please check your bookings page or contact support. Error: ${err.message}`);
-                        } finally {
-                                setLoading(false);
-                        }
-                };
+      if (response.success && response.payment_data) {
+        console.log('✅ Payment initiated successfully');
+        showSuccess('Redirecting to payment gateway...');
 
-                if (authToken) {
-                        fetchTransactionDetails();
-                } else {
-                        console.warn("⚠️ Waiting for auth token to fetch transaction details...");
-                        // If there's no token yet, the effect will re-run when it becomes available.
-                }
-        }, [txnid, authToken, fetchBookings]);
-
-        // --- Step 4: UI Helper Functions ---
-        const getStatusIcon = () => {
-                switch (actualType) {
-                        case 'success': return <CheckCircle className="w-16 h-16 text-green-500" />;
-                        case 'failure': return <XCircle className="w-16 h-16 text-red-500" />;
-                        default: return <AlertCircle className="w-16 h-16 text-yellow-500" />;
-                }
-        };
-
-        const getStatusTitle = () => {
-                switch (actualType) {
-                        case 'success': return 'Payment Successful!';
-                        case 'failure': return 'Payment Failed';
-                        default: return 'Payment Status';
-                }
-        };
-
-        const getStatusMessage = () => {
-                switch (actualType) {
-                        case 'success': return 'Your payment has been processed and your booking is confirmed.';
-                        case 'failure': return errorMsg || 'Your payment could not be processed. No funds have been deducted.';
-                        default: return 'Verifying payment status...';
-                }
-        };
-
-        // --- Step 5: Render Loading State or Final UI ---
-        if (loading) {
-                return (
-                        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                                <Card className="w-full max-w-md">
-                                        <div className="text-center py-8">
-                                                <Spinner size="lg" className="mb-4" />
-                                                <h2 className="text-xl font-semibold">Verifying Payment...</h2>
-                                                <p className="text-gray-600">Please wait, this won't take long.</p>
-                                        </div>
-                                </Card>
-                        </div>
-                );
+        // Ensure URLs include transaction ID
+        if (response.payment_data.txnid) {
+          const txnid = response.payment_data.txnid;
+          // Ensure URLs have the txnid parameter
+          if (response.payment_data.surl && !response.payment_data.surl.includes('txnid=')) {
+            response.payment_data.surl += (response.payment_data.surl.includes('?') ? '&' : '?') + `txnid=${txnid}`;
+          }
+          if (response.payment_data.furl && !response.payment_data.furl.includes('txnid=')) {
+            response.payment_data.furl += (response.payment_data.furl.includes('?') ? '&' : '?') + `txnid=${txnid}`;
+          }
         }
 
-        return (
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                        <Card className="w-full max-w-2xl">
-                                <div className="text-center p-6 sm:p-8">
-                                        <div className="flex justify-center mb-6">{getStatusIcon()}</div>
-                                        <h1 className="text-3xl font-bold text-gray-900 mb-4">{getStatusTitle()}</h1>
-                                        <p className="text-lg text-gray-600 mb-8">{getStatusMessage()}</p>
+        // Notify parent component
+        if (onPaymentInitiated) {
+          onPaymentInitiated(response);
+        }
 
-                                        {/* Transaction Details Box */}
-                                        {(transactionDetails || txnid) && (
-                                                <div className="bg-gray-50 border rounded-lg p-4 sm:p-6 mb-8 text-left">
-                                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Transaction Summary</h3>
-                                                        <div className="space-y-3 text-sm">
-                                                                <div className="flex justify-between">
-                                                                        <span className="text-gray-600">Transaction ID:</span>
-                                                                        <span className="font-mono font-medium">{transactionDetails?.payu_txnid || txnid}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                        <span className="text-gray-600">Booking ID:</span>
-                                                                        <span className="font-mono font-medium">{transactionDetails?.booking_id || bookingId}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center">
-                                                                        <span className="text-gray-600">Amount Paid:</span>
-                                                                        <span className="font-semibold text-lg">₹{(transactionDetails?.amount || parseFloat(amount) || 0).toLocaleString()}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                        <span className="text-gray-600">Payment Date:</span>
-                                                                        <span className="font-medium">{new Date(transactionDetails?.created_at || Date.now())}</span>
-                                                                </div>
-                                                                {transactionDetails?.hash_verified && (
-                                                                        <div className="flex justify-between pt-3 mt-3 border-t">
-                                                                                <span className="text-gray-600">Security Status:</span>
-                                                                                <span className="text-green-600 font-medium flex items-center">
-                                                                                        <CheckCircle className="w-4 h-4 mr-1" /> Verified
-                                                                                </span>
-                                                                        </div>
-                                                                )}
-                                                        </div>
-                                                </div>
-                                        )}
+        // Small delay to show success message
+        setTimeout(() => {
+          // Redirect to PayU gateway
+          redirectToPayU(response.payment_data);
+        }, 1500);
 
-                                        {/* Display Errors */}
-                                        {error && (
-                                                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-8 text-sm">
-                                                        <p>{error}</p>
-                                                </div>
-                                        )}
+      } else {
+        throw new Error(response.message || 'Failed to initiate payment');
+      }
 
-                                        {/* Action Buttons */}
-                                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                                <Button variant="secondary" onClick={() => navigate('/student/my-bookings')} leftIcon={<ArrowLeft />}>
-                                                        Go to My Bookings
-                                                </Button>
-                                                {actualType === 'success' && bookingId && (
-                                                        <Button variant="primary" onClick={() => navigate(`/student/booking-receipt/${bookingId}`)} leftIcon={<Download />}>
-                                                                Download Receipt
-                                                        </Button>
-                                                )}
-                                        </div>
-                                </div>
-                        </Card>
-                </div>
-        );
+    } catch (error) {
+      console.error('❌ Payment initiation failed:', error);
+      showError(error.message || 'Failed to initiate payment. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAmountChange = (e) => {
+    const value = parseFloat(e.target.value) || 0;
+    setPaymentAmount(value);
+
+    // Clear errors when user starts typing
+    if (errors.amount) {
+      setErrors({ ...errors, amount: '' });
+    }
+  };
+
+  const setQuickAmount = (amount) => {
+    setPaymentAmount(amount);
+    setErrors({ ...errors, amount: '' });
+  };
+
+  if (!booking) {
+    return null;
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Make Payment - PayU Gateway"
+      size="md"
+    >
+      <div className="space-y-6">
+        {/* Booking Summary */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="font-semibold text-gray-900 mb-2">Booking Summary</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Booking ID:</span>
+              <span className="font-mono">{booking.booking_id || booking.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Amount:</span>
+              <span className="font-semibold">₹{(booking.total_amount || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Amount Paid:</span>
+              <span className="text-green-600">₹{(booking.total_amount_paid || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2">
+              <span className="text-gray-600 font-medium">Pending Balance:</span>
+              <span className="font-bold text-red-600">₹{pendingBalance.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Amount Input */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Payment Amount
+            </label>
+            <Input
+              type="number"
+              min={minPayment}
+              max={maxPayment}
+              value={paymentAmount}
+              onChange={handleAmountChange}
+              placeholder="Enter amount"
+              className={errors.amount ? 'border-red-500' : ''}
+            />
+            {errors.amount && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                {errors.amount}
+              </p>
+            )}
+          </div>
+
+          {/* Quick Amount Buttons */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Quick Select:
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {pendingBalance >= 5000 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setQuickAmount(5000)}
+                  className="text-xs px-3 py-1"
+                >
+                  ₹5,000
+                </Button>
+              )}
+              {pendingBalance >= 10000 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setQuickAmount(10000)}
+                  className="text-xs px-3 py-1"
+                >
+                  ₹10,000
+                </Button>
+              )}
+              {pendingBalance >= 15000 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setQuickAmount(15000)}
+                  className="text-xs px-3 py-1"
+                >
+                  ₹15,000
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                onClick={() => setQuickAmount(pendingBalance)}
+                className="text-xs px-3 py-1 bg-green-100 text-green-700 hover:bg-green-200"
+              >
+                Full Amount (₹{pendingBalance.toLocaleString()})
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Gateway Info */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-start">
+            <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-2" />
+            <div className="text-sm">
+              <p className="font-medium text-blue-900">Secure Payment with PayU</p>
+              <ul className="mt-1 text-blue-700 space-y-1">
+                <li>• Pay using Credit/Debit Cards, Net Banking, UPI</li>
+                <li>• SSL encrypted secure transaction</li>
+                <li>• Instant payment confirmation</li>
+                <li>• 24/7 customer support</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t">
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            disabled={isProcessing}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handlePaymentInitiation}
+            disabled={isProcessing || !paymentAmount || paymentAmount <= 0}
+            className="flex-1"
+            leftIcon={isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+          >
+            {isProcessing ? 'Processing...' : `Pay ₹${paymentAmount.toLocaleString()}`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 };
 
-export default PaymentStatus;
-
+export default PayUPayment;
