@@ -19,7 +19,7 @@ const PaymentStatus = ({ type = 'success' }) => {
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const cardRef = useRef(null); // Ref to track the card element
+  const cardRef = useRef(null);
 
   // Debug: Log all URL parameters and current URL
   console.log('🔍 PaymentStatus - All URL parameters:', Object.fromEntries(searchParams));
@@ -62,24 +62,34 @@ const PaymentStatus = ({ type = 'success' }) => {
 
   // Function to generate and download PDF
   const downloadPDF = async () => {
-    const element = cardRef.current;
+    console.log('📸 Attempting to capture card for PDF');
+    const element = cardRef.current || document.getElementById('payment-card');
     if (!element) {
-      console.error('Payment card element not found in DOM');
-      setError('Failed to generate receipt PDF: Card element not found. Please try again.');
+      console.error('Payment card element not found in DOM', {
+        cardRef: cardRef.current,
+        idElement: document.getElementById('payment-card'),
+        loadingState: loading,
+        hasTxnid: !!txnid,
+      });
+      setError('Failed to generate receipt PDF: Card element not found. Please ensure the payment details are loaded and try again.');
       return;
     }
 
-    try {
-      // Ensure DOM is fully rendered
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log('✅ Card element found:', element);
 
-      // Temporarily hide buttons and support contact for cleaner PDF
+    try {
+      // Wait for DOM to stabilize
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Temporarily hide buttons and support contact
       const buttons = element.querySelector('.action-buttons');
       const support = element.querySelector('.support-contact');
+      const originalButtonDisplay = buttons ? buttons.style.display : '';
+      const originalSupportDisplay = support ? support.style.display : '';
       if (buttons) buttons.style.display = 'none';
       if (support) support.style.display = 'none';
 
-      // Set explicit background color to match status
+      // Set explicit background color
       const originalStyle = element.style.backgroundColor;
       element.style.backgroundColor = getStatusColor().includes('bg-green-50')
         ? '#f0fdf4'
@@ -87,19 +97,22 @@ const PaymentStatus = ({ type = 'success' }) => {
         ? '#fef2f2'
         : '#fefce8';
 
+      console.log('📷 Capturing with html2canvas...');
       const canvas = await html2canvas(element, {
-        scale: 2, // Higher resolution
-        useCORS: true, // Handle external resources
-        backgroundColor: null, // Preserve card background
-        logging: true, // Enable logging for debugging
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+        logging: true,
         windowWidth: document.body.scrollWidth,
         windowHeight: document.body.scrollHeight,
       });
 
-      // Restore original styles
+      console.log('✅ Canvas captured:', canvas.width, 'x', canvas.height);
+
+      // Restore styles
       element.style.backgroundColor = originalStyle;
-      if (buttons) buttons.style.display = '';
-      if (support) support.style.display = '';
+      if (buttons) buttons.style.display = originalButtonDisplay;
+      if (support) support.style.display = originalSupportDisplay;
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
@@ -108,11 +121,12 @@ const PaymentStatus = ({ type = 'success' }) => {
         format: 'a4',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // 10mm margins
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Check if content fits on one page; if not, scale down
       const maxPdfHeight = pdf.internal.pageSize.getHeight() - 20;
+
+      console.log('📄 Generating PDF with dimensions:', pdfWidth, 'x', pdfHeight);
+
       if (pdfHeight > maxPdfHeight) {
         const scaleFactor = maxPdfHeight / pdfHeight;
         pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth * scaleFactor, pdfHeight * scaleFactor);
@@ -121,9 +135,13 @@ const PaymentStatus = ({ type = 'success' }) => {
       }
 
       pdf.save(`Receipt_${transactionDetails?.payu_txnid || txnid || 'unknown'}.pdf`);
+      console.log('✅ PDF generated and saved');
     } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      setError(`Failed to generate receipt PDF: ${err.message}. Please try again.`);
+      console.error('Failed to generate PDF:', err, {
+        stack: err.stack,
+        elementPresent: !!element,
+      });
+      setError(`Failed to generate receipt PDF: ${err.message}. Please try again or contact support.`);
     }
   };
 
@@ -426,7 +444,7 @@ const PaymentStatus = ({ type = 'success' }) => {
               Back to My Bookings
             </Button>
 
-            {actualType === 'success' && (transactionDetails || bookingId) && (
+            {actualType === 'success' && (transactionDetails || bookingId) && !loading && (
               <Button
                 variant="primary"
                 onClick={downloadPDF}
@@ -436,7 +454,7 @@ const PaymentStatus = ({ type = 'success' }) => {
               </Button>
             )}
 
-            {actualType === 'failure' && bookingId && (
+            {actualType === 'failure' && bookingId && !loading && (
               <Button
                 variant="primary"
                 onClick={() => navigate(`/student/my-bookings?retry_payment=${bookingId}`)}
