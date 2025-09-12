@@ -3,6 +3,7 @@ import { Users, BedDouble, CalendarCheck, IndianRupee, PieChart, Building, UserC
 import Card from '../components/ui/Card';
 import StatCard from '../components/ui/StatCard';
 import { useAppContext } from '../context/AppContext';
+import { getAdminDashboardSummary } from '../apiService';
 import { Table, TableRow, TableCell } from '../components/ui/Table';
 import StatusTag from '../components/ui/StatusTag';
 import { useNavigate } from 'react-router-dom';
@@ -14,9 +15,27 @@ const Dashboard = () => {
     rooms,
     bookings,
     payments,
-    fetchStudents,   // still available for manual refresh
+    fetchStudents,
     loading,
+    userRole,
+    authToken,
   } = useAppContext();
+
+  const [adminMetrics, setAdminMetrics] = React.useState(null);
+  const [adminLoading, setAdminLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (userRole === 'admin') {
+      setAdminLoading(true);
+      getAdminDashboardSummary(authToken)
+        .then(data => setAdminMetrics(data))
+        .catch(err => {
+          console.error('Failed to fetch admin dashboard summary:', err);
+          setAdminMetrics(null);
+        })
+        .finally(() => setAdminLoading(false));
+    }
+  }, [userRole, authToken]);
 
   const navigate = useNavigate();
 
@@ -94,19 +113,9 @@ const Dashboard = () => {
         return acc + (Number(cap) || 0);
       }, 0);
 
-      // Prefer explicit booked cot IDs if present; otherwise count active bookings
-      const bookedCotIds = new Set(
-        (bookings || [])
-          .map(b => b?.cot_id)
-          .filter(Boolean)
-      );
-
-      const activeBookingsCount = (bookings || []).filter(b => {
-        const s = b?.status;
-        return s === 'Active' || s === 'active' || s === 'Confirmed' || s === 'confirmed' || s === 'CONFIRMED';
-      }).length;
-
-      const occupiedCots = bookedCotIds.size > 0 ? bookedCotIds.size : activeBookingsCount;
+      // Count bookings with status indicating the cot is occupied
+      const occupiedStatuses = ['Allotted', 'allotted'];
+      const occupiedCots = (bookings || []).filter(b => occupiedStatuses.includes(b?.status)).length;
       const availableCots = Math.max(0, totalCapacity - occupiedCots);
 
       return { totalCapacity, occupiedCots, availableCots };
@@ -163,12 +172,23 @@ const Dashboard = () => {
         </Button>
       </div>
 
-      {/* Main Statistics */}
+      {/* Main Statistics (admin uses API metrics) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-        <StatCard label="Total Students" value={totalStudents} icon={<Users className="w-6 h-6" />} color="text-primary-purple" />
-        <StatCard label="Total Rooms" value={totalRooms} icon={<Building className="w-6 h-6" />} color="text-accent-orange" />
-        <StatCard label="Available Rooms" value={availableRooms} icon={<BedDouble className="w-6 h-6" />} color="text-accent-cyan" />
-        <StatCard label="Total Bookings" value={totalBookings} icon={<CalendarCheck className="w-6 h-6" />} color="text-red-500" />
+        {userRole === 'admin' && adminMetrics ? (
+          <>
+            <StatCard label="Total Students" value={adminMetrics.total_students} icon={<Users className="w-6 h-6" />} color="text-primary-purple" />
+            <StatCard label="Total Rooms" value={adminMetrics.total_rooms} icon={<Building className="w-6 h-6" />} color="text-accent-orange" />
+            <StatCard label="Available Rooms" value={adminMetrics.available_rooms} icon={<BedDouble className="w-6 h-6" />} color="text-accent-cyan" />
+            <StatCard label="Total Bookings" value={adminMetrics.total_bookings} icon={<CalendarCheck className="w-6 h-6" />} color="text-red-500" />
+          </>
+        ) : (
+          <>
+            <StatCard label="Total Students" value={totalStudents} icon={<Users className="w-6 h-6" />} color="text-primary-purple" />
+            <StatCard label="Total Rooms" value={totalRooms} icon={<Building className="w-6 h-6" />} color="text-accent-orange" />
+            <StatCard label="Available Rooms" value={availableRooms} icon={<BedDouble className="w-6 h-6" />} color="text-accent-cyan" />
+            <StatCard label="Total Bookings" value={totalBookings} icon={<CalendarCheck className="w-6 h-6" />} color="text-red-500" />
+          </>
+        )}
       </div>
 
       {/* Occupancy Overview */}
