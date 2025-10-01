@@ -6,7 +6,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import PaymentStatus from './components/payu/PaymentStatus';
 
 
-// Layouts
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import PageWrapper from './components/layout/PageWrapper';
@@ -15,6 +14,7 @@ import StudentLayout from './components/student/StudentLayout';
 // Auth Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 
 // Admin Pages
 import Dashboard from './pages/Dashboard';
@@ -79,6 +79,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         <Route element={<ProtectedRoute allowedRoles={['student']} />}>
           <Route path="/student" element={<StudentLayout />}>
@@ -93,15 +94,9 @@ const AppRoutes = () => {
         </Route>
 
         {/* PayU Payment Callback Routes - Accessible without authentication */}
-        <Route path="/payment/success" element={
-          <PaymentStatus type="success" />
-        } />
-        <Route path="/payment/failure" element={
-          <PaymentStatus type="failure" />
-        } />
-        <Route path="/payment/cancel" element={
-          <PaymentStatus type="failure" />
-        } />
+        <Route path="/payment/success" element={<PaymentStatus type="success" />} />
+        <Route path="/payment/failure" element={<PaymentStatus type="failure" />} />
+        <Route path="/payment/cancel" element={<PaymentStatus type="failure" />} />
 
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/" element={<AdminPortal />}>
