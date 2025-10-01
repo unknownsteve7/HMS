@@ -112,19 +112,23 @@ const Login = () => {
               </Button>
             </form>
 
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-sm text-primary-purple hover:underline font-medium"
+              >
+                Forgot Password?
+              </button>
+            </div>
+
             {activeTab === 'student' && (
               <p className="text-center text-sm text-text-medium mt-6">
                 Don't have an account? <Link to="/register" className="font-semibold text-primary-purple hover:underline">Register here</Link>
               </p>
             )}
 
-            <button
-              type="button"
-              onClick={handleResetApp}
-              className="mt-4 text-sm text-gray-500 hover:text-gray-700"
-            >
-              Having trouble? Reset application
-            </button>
+
           </>
         )}
       </Card>
