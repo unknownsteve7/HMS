@@ -113,7 +113,7 @@ const apiCall = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       // Special handling for students endpoint
-      if (endpoint === '/students' && (response.status === 401 || response.status === 403)) {
+      if ((endpoint === '/students/') && (response.status === 401 || response.status === 403)) {
         console.error(`❌ Authentication error (${response.status}) when fetching students`);
 
         // Get user role and token info for debugging
@@ -193,7 +193,7 @@ export const studentLogin = async (username, password) => {
 
 // Admin Login API
 export const adminLogin = async (username, password) => {
-  console.log('🔐 Admin login attempt:', { username });
+  console.log(' Admin login attempt:', { username });
 
   const formData = createFormData({
     username: username,
@@ -927,6 +927,25 @@ export const deleteRoom = async (roomId, authToken = null) => {
   }
 };
 
+// Send OTP for registration
+export const sendOtp = async (email_address) => {
+  console.log('✉️ Sending OTP to:', email_address);
+  try {
+    const result = await apiCall('/api/auth/send-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email_address }),
+    });
+    console.log('✅ OTP sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to send OTP:', error);
+    throw error;
+  }
+};
+
 // Register new student API
 export const registerStudent = async (studentData, authToken = null) => {
   console.log('👤 registerStudent called with data:', studentData);
@@ -949,7 +968,8 @@ export const registerStudent = async (studentData, authToken = null) => {
     Branch: studentData.Branch,
     Year: studentData.Year, // Keep as string since backend expects string
     gender: studentData.gender,
-    password: studentData.password
+    password: studentData.password,
+    otp: studentData.otp // OTP for verification
   };
 
   console.log('📋 Student Registration Payload:');
@@ -977,103 +997,49 @@ export const registerStudent = async (studentData, authToken = null) => {
   }
 };
 
-// Get all students API
-export const getAllStudents = async (authToken = null) => {
-  console.log('👥 getAllStudents called with token:', authToken ? `${authToken.substring(0, 10)}...` : 'null');
-  console.log('👥 API_URL for students:', `${API_URL}/students`);
+// Register new admin API
+export const registerAdmin = async (adminData, authToken = null) => {
+  console.log('👔 registerAdmin called with data:', adminData);
+  console.log('🔑 Using auth token:', safeTokenLog(authToken));
+
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  // Create JSON payload for admin registration - matching backend format
+  const payload = {
+    email_address: adminData.email_address,
+    full_name: adminData.full_name,
+    password: adminData.password,
+    role: adminData.role || 'warden'
+  };
+
+  console.log('📋 Admin Registration Payload:');
+  console.log('  Full Name:', payload.full_name);
+  console.log('  Email Address:', payload.email_address);
+  console.log('  Role:', payload.role);
+  console.log('🚀 Sending to API:', `${API_URL}/admins`);
 
   try {
-    // Debug storage state for admin
-    const adminData = localStorage.getItem('adminData');
-    const userRole = localStorage.getItem('userRole');
-    console.log('📊 Admin debug info:', {
-      hasAdminData: !!adminData,
-      storedRole: userRole,
-      isAdmin: userRole === 'admin'
+    const result = await apiCall('/api/admins', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload),
     });
 
-    // Try multiple endpoints based on what the API might support
-    const endpoints = ['/students'];
-
-    // First try the primary endpoint
-    console.log('🔄 Trying primary endpoint:', `/students`);
-
-    // Set headers with auth token
-    const headers = setAuthHeader({}, authToken);
-    console.log('🔐 getAllStudents using auth headers:', headers);
-
-    try {
-      const result = await apiCall('/students/', {
-        method: 'GET',
-        headers: headers,
-      });
-
-      console.log(`✅ getAllStudents success, received ${Array.isArray(result) ? result.length : 'non-array'} items`);
-      return result;
-    } catch (firstError) {
-      console.warn('⚠️ Primary students endpoint failed, trying alternative:', firstError.message);
-
-      // If first endpoint fails, try alternatives
-      for (let i = 1; i < endpoints.length; i++) {
-        try {
-          console.log(`🔄 Trying alternative endpoint ${i}:`, endpoints[i]);
-          const altResult = await apiCall(endpoints[i], {
-            method: 'GET',
-            headers: headers,
-          });
-
-          console.log(`✅ Alternative endpoint ${i} success, received ${Array.isArray(altResult) ? altResult.length : 'non-array'} items`);
-          return altResult;
-        } catch (altError) {
-          console.warn(`⚠️ Alternative endpoint ${i} also failed:`, altError.message);
-          // Continue to next alternative
-        }
-      }
-
-      // If we get here, all endpoints failed
-      throw firstError;
-    }
+    console.log('✅ Admin registration successful:', result);
+    return result;
   } catch (error) {
-    console.error('❌ getAllStudents failed:', error);
-
-    // Try again with a different auth format if we got a 401
-    if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-      console.log('� Trying getAllStudents with alternative auth format');
-
-      try {
-        const token = authToken || localStorage.getItem('authToken') || sessionStorage.getItem('authToken_backup');
-        if (!token) throw new Error('No authentication token available');
-
-        // Try with explicit Bearer prefix
-        const headers = { 'Authorization': `Bearer ${token}` };
-
-        const result = await apiCall('/students', {
-          method: 'GET',
-          headers: headers
-        });
-
-        console.log(`✅ getAllStudents retry success, received ${Array.isArray(result) ? result.length : 'non-array'} items`);
-        return result;
-      } catch (retryError) {
-        console.error('❌ getAllStudents retry also failed:', retryError);
-        throw retryError;
-      }
-    }
-
-    // Log more specific error information
-    if (error.message.includes('401')) {
-      console.error('🔓 Authentication failed - token may be invalid or expired');
-    } else if (error.message.includes('403')) {
-      console.error('🚫 Access forbidden - user may not have permission to view students');
-    } else if (error.message.includes('500')) {
-      console.error('🔥 Internal server error - backend issue');
-    }
-
+    console.error('❌ Admin registration failed:', error);
     throw error;
   }
 };
 
-// Delete student API
+// Delete student API (admin function)
 export const deleteStudent = async (studentId, authToken = null) => {
 console.log('🗑️ deleteStudent called for ID:', studentId);
 console.log('🔑 Using auth token:', authToken ? `${authToken.substring(0, 10)}...` : 'null');
@@ -1084,6 +1050,7 @@ headers['Authorization'] = `Bearer ${authToken}`;
 }
 
 try {
+// Use admin endpoint for deleting students
 const result = await apiCall(`/students/${studentId}`, {
 method: 'DELETE',
 headers: headers,
@@ -1128,7 +1095,7 @@ throw error;
 }
 };
 
-// Update student API
+// Update student API (admin function)
 export const updateStudent = async (studentId, studentData, authToken = null) => {
   console.log('✏️ updateStudent called for ID:', studentId);
   console.log('📝 Student data:', studentData);
@@ -1144,6 +1111,7 @@ export const updateStudent = async (studentId, studentData, authToken = null) =>
   console.log('📤 updateStudent headers:', headers);
 
   try {
+    // Use admin endpoint for updating students
     const result = await apiCall(`/students/${studentId}`, {
       method: 'PUT',
       headers: headers,
@@ -1154,6 +1122,31 @@ export const updateStudent = async (studentId, studentData, authToken = null) =>
     return result;
   } catch (error) {
     console.error('❌ Student update failed:', error);
+    throw error;
+  }
+};
+
+// Get all students API (admin function)
+export const getAllStudents = async (authToken = null) => {
+  console.log('📋 getAllStudents called');
+  console.log('🔑 Using auth token:', safeTokenLog(authToken));
+
+  const headers = {};
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  try {
+    // Use admin endpoint for fetching all students
+    const result = await apiCall('/students/', {
+      method: 'GET',
+      headers: headers,
+    });
+
+    console.log('✅ All students fetched successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Failed to fetch all students:', error);
     throw error;
   }
 };
@@ -1351,25 +1344,49 @@ export const createPayment = async (paymentData, authToken = null) => {
     method: 'POST',
     headers: headers,
     body: JSON.stringify(paymentData),
-
   });
 };
 
-
-
-/**
- * API service for managing student data
- */
-const api = {
-  getAllStudents,
-  deleteStudent,
-  updateStudent,
-  getCurrentUserProfile,
-  getAllBookings,
-  createBookingForStudent,
+// Send OTP for password reset
+export const sendOTP = async (email) => {
+  const response = await fetch(`${API_URL}/api/auth/send-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email_address: email }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to send OTP');
+  }
+  
+  return response.json();
 };
 
-export default api;
+// Reset password with OTP
+export const resetPassword = async (email, otp, newPassword) => {
+  const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email_address: email,
+      otp: otp,
+      new_password: newPassword,
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to reset password');
+  }
+  
+  return response.json();
+};
+
 
 
 
