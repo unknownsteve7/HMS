@@ -164,15 +164,15 @@ const Register = () => {
                   placeholder="Enter email address"
                   onChange={handleChange}
                   required
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                  className="flex-grow max-w-[60%] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
                 />
                 <button
                   type="button"
                   onClick={handleSendOtp}
                   disabled={isSendingOtp || !formData.email_address || otpSent}
-                  className={`px-4 py-2 rounded-md font-medium transition-colors ${isSendingOtp || !formData.email_address || otpSent
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-primary-purple text-white hover:bg-purple-700'
+                  className={`px-4 py-2 rounded-md font-medium transition-colors whitespace-nowrap min-w-[100px] ${isSendingOtp || !formData.email_address || otpSent
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-primary-purple text-white hover:bg-purple-700'
                     }`}
                 >
                   {isSendingOtp ? 'Sending...' : otpSent ? 'Sent' : 'Send OTP'}
