@@ -8,6 +8,7 @@ import Spinner from '../components/ui/Spinner';
 import AuthLayout from '../components/auth/AuthLayout';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { sendOtp } from '../apiService';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -20,7 +21,10 @@ const Register = () => {
     gender: '',
     password: '',
     confirmPassword: '',
+    otp: '', // OTP for verification
   });
+  const [otpSent, setOtpSent] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -29,15 +33,46 @@ const Register = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    console.log(`🔄 Form field changed: ${name} = "${value}"`);
+    console.log(` Form field changed: ${name} = "${value}"`);
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSendOtp = async () => {
+    if (!formData.email_address) {
+      showError('Please enter your email address first');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      await sendOtp(formData.email_address);
+      setOtpSent(true);
+      showSuccess('OTP has been sent to your email address');
+    } catch (err) {
+      console.error('Failed to send OTP:', err);
+
+      // Extract clean error message without status codes
+      let errorMessage = err.message || 'Failed to send OTP. Please try again.';
+
+      // Remove HTTP status codes and extract just the message
+      if (errorMessage.includes('HTTP 409') || errorMessage.toLowerCase().includes('email already registered')) {
+        errorMessage = 'Email already Registered';
+      } else if (errorMessage.includes('HTTP')) {
+        // Remove HTTP status codes from any other error messages
+        errorMessage = errorMessage.replace(/HTTP \d+: /g, '').trim();
+      }
+
+      showError(errorMessage);
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    console.log('📋 Current form data before validation:', formData);
+    console.log(' Current form data before validation:', formData);
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
@@ -60,9 +95,10 @@ const Register = () => {
         Year: formData.Year, // Keep as string to match backend format
         gender: formData.gender,
         password: formData.password, // Include password for registration
+        otp: formData.otp, // Include OTP for verification
       };
 
-      console.log('📝 Submitting registration data:', newStudentData);
+      console.log(' Submitting registration data:', newStudentData);
 
       await registerStudent(newStudentData);
 
@@ -73,10 +109,20 @@ const Register = () => {
       setTimeout(() => {
         navigate('/login');
       }, 1500);
-
     } catch (err) {
       console.error('Registration failed:', err);
-      const errorMessage = err.message || 'An error occurred during registration. Please try again.';
+
+      // Extract clean error message without status codes
+      let errorMessage = err.message || 'An error occurred during registration. Please try again.';
+
+      // Remove HTTP status codes and extract just the message
+      if (errorMessage.includes('HTTP 409') || errorMessage.toLowerCase().includes('email already registered')) {
+        errorMessage = 'Email already Registered';
+      } else if (errorMessage.includes('HTTP')) {
+        // Remove HTTP status codes from any other error messages
+        errorMessage = errorMessage.replace(/HTTP \d+: /g, '').trim();
+      }
+
       setError(errorMessage);
       showError(errorMessage);
     } finally {
@@ -87,28 +133,52 @@ const Register = () => {
   return (
     <AuthLayout>
       <Card className="w-full max-w-2xl">
-        <h1 className="text-3xl font-bold text-center text-primary-purple">Student Registration</h1>
-        <p className="text-center text-text-medium mt-1 mb-8">Join SSE Hostel Management System</p>
+        <h1 className="text-3xl font-bold text-center text-primary-purple">
+          Student Registration
+        </h1>
+        <p className="text-center text-text-medium mt-1 mb-8">
+          Join SSE Hostel Management System
+        </p>
+
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Common fields for both student and admin */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <Input
               label="Full Name"
               name="full_name"
               value={formData.full_name}
-              placeholder="Enter your full name"
+              placeholder="Enter full name"
               onChange={handleChange}
               required
             />
-            <Input
-              label="Email Address"
-              name="email_address"
-              type="email"
-              value={formData.email_address}
-              placeholder="Enter your email"
-              onChange={handleChange}
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  type="email"
+                  name="email_address"
+                  value={formData.email_address}
+                  placeholder="Enter email address"
+                  onChange={handleChange}
+                  required
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-purple focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={isSendingOtp || !formData.email_address || otpSent}
+                  className={`px-4 py-2 rounded-md font-medium transition-colors ${isSendingOtp || !formData.email_address || otpSent
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-primary-purple text-white hover:bg-purple-700'
+                    }`}
+                >
+                  {isSendingOtp ? 'Sending...' : otpSent ? 'Sent' : 'Send OTP'}
+                </button>
+              </div>
+            </div>
             <Input
               label="Mobile Number"
               name="mobile_number"
@@ -117,7 +187,7 @@ const Register = () => {
               onChange={handleChange}
               required
             />
-            <Select 
+            <Select
               label="Professional Degree"
               name="Registration_number"
               value={formData.Registration_number}
@@ -185,6 +255,21 @@ const Register = () => {
               onChange={handleChange}
               required
             />
+
+            {/* OTP input field - only shown after OTP is sent */}
+            {otpSent && (
+              <Input
+                label="Enter OTP"
+                name="otp"
+                type="text"
+                value={formData.otp}
+                placeholder="Enter 6-digit OTP"
+                onChange={handleChange}
+                required
+                maxLength={6}
+                pattern="\d{6}"
+              />
+            )}
           </div>
 
           {error && <p className="text-sm text-red-500 text-center pt-2">{error}</p>}
@@ -193,7 +278,7 @@ const Register = () => {
             <Button
               type="submit"
               className="w-full !py-3 !text-base"
-              disabled={isLoading}
+              disabled={isLoading || (!otpSent || formData.otp.length !== 6)}
               leftIcon={isLoading ? <Spinner size="sm" /> : null}
             >
               {isLoading ? 'Creating Account...' : 'Create Account'}
