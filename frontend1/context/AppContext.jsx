@@ -437,6 +437,16 @@ export const AppProvider = ({ children }) => {
     async (bookingData) => {
       try {
         if (!authToken) throw new Error('Authentication required to create a booking.');
+
+        // Enforce "one active booking per student" rule
+        const hasActiveBooking = bookings.some(
+          (b) => b.status !== 'Cancelled' && b.status !== 'Completed'
+        );
+
+        if (hasActiveBooking) {
+          throw new Error('You already have an active booking. You cannot book another cot.');
+        }
+
         const newBookingResponse = await createStudentBooking(bookingData, authToken);
         await fetchBookings();
         return newBookingResponse;
@@ -445,7 +455,7 @@ export const AppProvider = ({ children }) => {
         throw error;
       }
     },
-    [authToken, fetchBookings]
+    [authToken, fetchBookings, bookings]
   );
 
   const addPayment = useCallback(
