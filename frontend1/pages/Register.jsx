@@ -44,21 +44,29 @@ const Register = () => {
 
     setIsSendingOtp(true);
     try {
-      await sendOtp(formData.email_address,'newregistration');
+      await sendOtp(formData.email_address, 'newregistration');
       setOtpSent(true);
       showSuccess('OTP has been sent to your email address');
     } catch (err) {
       console.error('Failed to send OTP:', err);
 
-      // Extract clean error message without status codes
       let errorMessage = err.message || 'Failed to send OTP. Please try again.';
 
-      // Remove HTTP status codes and extract just the message
+      // Attempt to parse the detail from a JSON string within the message
+      try {
+        const match = errorMessage.match(/{"detail":"(.*?)"}/);
+        if (match && match[1]) {
+          errorMessage = match[1];
+        }
+      } catch (e) {
+        // Fallback to the original message if parsing fails
+      }
+
+      // Further clean up for known error formats
       if (errorMessage.includes('HTTP 409') || errorMessage.toLowerCase().includes('email already registered')) {
         errorMessage = 'Email already Registered';
       } else if (errorMessage.includes('HTTP')) {
-        // Remove HTTP status codes from any other error messages
-        errorMessage = errorMessage.replace(/HTTP \d+: /g, '').trim();
+        errorMessage = errorMessage.replace(/HTTP \d+:/g, '').replace(/message:/, '').trim();
       }
 
       showError(errorMessage);
@@ -289,5 +297,3 @@ const Register = () => {
 };
 
 export default Register;
-
-
