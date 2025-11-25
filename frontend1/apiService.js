@@ -781,7 +781,7 @@ export const deleteRoom = async (roomId, authToken = null) => {
 };
 
 // Send OTP for registration
-export const sendOtp = async (email_address) => {
+export const sendOtp = async (email_address,cause) => {
   
   try {
     const result = await apiCall('/api/auth/send-otp', {
@@ -789,7 +789,7 @@ export const sendOtp = async (email_address) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email_address }),
+      body: JSON.stringify({ email_address,cause }),
     });
     return result;
   } catch (error) {
@@ -1088,13 +1088,13 @@ export const createPayment = async (paymentData, authToken = null) => {
 };
 
 // Send OTP for password reset
-export const sendOTP = async (email) => {
+export const sendOTP = async (email,cause) => {
   const response = await fetch(`${API_URL}/api/auth/send-otp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email_address: email }),
+    body: JSON.stringify({ email_address: email,cause }),
   });
   
   if (!response.ok) {
@@ -1125,4 +1125,5 @@ export const resetPassword = async (email, otp, newPassword) => {
   }
   
   return response.json();
+
 };
