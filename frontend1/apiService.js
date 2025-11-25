@@ -1094,7 +1094,7 @@ export const sendOTP = async (email,cause) => {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email_address: email,cause }),
+    body: JSON.stringify({ email_address: email,cause: cause }),
   });
   
   if (!response.ok) {
@@ -1127,3 +1127,4 @@ export const resetPassword = async (email, otp, newPassword) => {
   return response.json();
 
 };
+
