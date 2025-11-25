@@ -24,7 +24,7 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
-      await sendOTP(email);
+      await sendOTP(email,cause='forgotpassword');
       showSuccess('OTP sent to your email address');
       setStep(2);
     } catch (err) {
@@ -168,3 +168,4 @@ const ForgotPassword = () => {
 };
 
 export default ForgotPassword;
+
