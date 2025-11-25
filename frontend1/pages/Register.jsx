@@ -44,7 +44,7 @@ const Register = () => {
 
     setIsSendingOtp(true);
     try {
-      await sendOtp(formData.email_address,cause='newregistration');
+      await sendOtp(formData.email_address,'newregistration');
       setOtpSent(true);
       showSuccess('OTP has been sent to your email address');
     } catch (err) {
@@ -289,4 +289,5 @@ const Register = () => {
 };
 
 export default Register;
+
 
