@@ -83,6 +83,7 @@ const MyBookings = () => {
           total: activeBookings.length, // Always use the frontend-calculated active bookings count
           successfulPayments: successfulPaymentsCount, // Use the more accurate frontend calculation
           totalBalanceDue: dashboardData.total_balance_due || 0,
+          concessionAmount: dashboardData.concession_amount || 0,
           confirmed: activeBookings?.filter(b => b?.status === 'Active' || b?.status === 'Pending Check-in')?.length || 0,
         };
       }
@@ -93,6 +94,7 @@ const MyBookings = () => {
         confirmed: activeBookings?.filter(b => b?.status === 'Active' || b?.status === 'Pending Check-in')?.length || 0,
         totalBalanceDue: studentBookings?.reduce((sum, b) => sum + (parseFloat(b?.pending_balance) || 0), 0) || 0,
         successfulPayments: successfulPaymentsCount,
+        concessionAmount: studentBookings?.reduce((sum, b) => sum + (parseFloat(b?.concession_amount) || 0), 0) || 0,
         checkedIn: activeBookings?.filter(b => b?.status === 'Active')?.length || 0,
       };
     } catch (error) {
@@ -111,7 +113,7 @@ const MyBookings = () => {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${(stats.concessionAmount || 0) > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
         <StatCard
           label="Total Bookings"
           value={dashboardLoading ? '...' : stats.total}
@@ -130,6 +132,14 @@ const MyBookings = () => {
           icon={<IndianRupee className="w-6 h-6" />}
           color="text-accent-orange"
         />
+        {(stats.concessionAmount || 0) > 0 && (
+          <StatCard
+            label="Concession Amount"
+            value={dashboardLoading ? '...' : `₹${(stats.concessionAmount || 0).toLocaleString()}`}
+            icon={<IndianRupee className="w-6 h-6" />}
+            color="text-blue-500"
+          />
+        )}
       </div>
 
       <Card>
