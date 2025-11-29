@@ -57,7 +57,7 @@ const BookingCard = ({ booking }) => {
 
   // Add this component to handle PayU payment button in your existing BookingCard
   const PayUPaymentButton = ({ booking }) => {
-    const { userRole } = useAppContext(); // ✅ Add userRole context
+    const { userRole } = useAppContext(); //  Add userRole context
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     const handlePaymentInitiated = (response) => {
@@ -70,7 +70,7 @@ const BookingCard = ({ booking }) => {
     const paidAmount = booking.amount_paid || booking.amountPaid || booking.total_amount_paid || 0;
     const pendingBalance = booking.balance || booking.pending_balance || (totalAmount - paidAmount);
 
-  
+
 
     // Only show PayU payment option if there's a pending balance
     if (pendingBalance <= 0) {
@@ -84,7 +84,7 @@ const BookingCard = ({ booking }) => {
           className="w-full"
           onClick={() => setShowPaymentModal(true)}
           leftIcon={<CreditCard className="w-4 h-4" />}
-        >  
+        >
           {userRole === 'admin' ? 'Process Payment' : 'Pay with PayU'}
           {pendingBalance > 0 ? ` (₹${pendingBalance.toLocaleString()})` : ""}
         </Button>
@@ -109,7 +109,7 @@ const BookingCard = ({ booking }) => {
   // Debug logging for payment button visibility
   const paidAmount = totalAmountPaid;
 
-  
+
 
   return (
     <Card
@@ -190,13 +190,21 @@ const BookingCard = ({ booking }) => {
               </div>
             </div>
           </div>
-          <div className="border-t border-subtle-border pt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className={`border-t border-subtle-border pt-4 grid grid-cols-2 ${(booking.concession_amount || 0) > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4`}>
             <div>
               <p className="text-sm text-text-medium">Total Amount</p>
               <p className="font-bold">
                 ₹{totalAmount.toLocaleString()}
               </p>
             </div>
+            {(booking.concession_amount || 0) > 0 && (
+              <div>
+                <p className="text-sm text-text-medium">Concession</p>
+                <p className="font-bold text-blue-600">
+                  ₹{(booking.concession_amount || 0).toLocaleString()}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-sm text-text-medium">Amount Paid</p>
               <p className="font-bold text-green-600">
