@@ -19,7 +19,6 @@ const Login = () => {
 
 
 
-  // Redirect if already authenticated
   useEffect(() => {
 
     if (isAuthenticated) {
@@ -88,7 +87,7 @@ const Login = () => {
               </div>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form className="space-y-6" onSubmit={(e) => e.preventDefault()} noValidate>
               <Input
                 label="Email Address"
                 id="email"
@@ -107,7 +106,7 @@ const Login = () => {
                 onChange={e => setPassword(e.target.value)}
                 required
               />
-              <Button type="submit" className="w-full !py-3 !text-base" disabled={isLoading}>
+              <Button type="button" onClick={handleLogin} className="w-full !py-3 !text-base" disabled={isLoading}>
                 Sign In
               </Button>
             </form>
