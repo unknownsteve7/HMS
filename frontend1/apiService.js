@@ -789,11 +789,11 @@ export const sendOtp = async (email_address,cause) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email_address,cause }),
+      body: JSON.stringify({ email_address, cause }),
     });
     return result;
   } catch (error) {
-    console.error('❌ Failed to send OTP:', error);
+    console.error(' Failed to send OTP:', error);
     throw error;
   }
 };
@@ -915,12 +915,23 @@ export const updateStudent = async (studentId, studentData, authToken = null) =>
     'Content-Type': 'application/json',
   }, authToken);
 
+  // Transform payload to match backend format
+  const payload = {
+    full_name: studentData.full_name,
+    email_address: studentData.email_address,
+    mobile_number: studentData.mobile_number,
+    Registration_number: studentData.Registration_number,
+    Branch: studentData.Branch,
+    Year: studentData.Year,
+    concession_amount: parseFloat(studentData.custom_price) || 0
+  };
+
   try {
     // Use admin endpoint for updating students
     const result = await apiCall(`/students/${studentId}`, {
       method: 'PUT',
       headers: headers,
-      body: JSON.stringify(studentData),
+      body: JSON.stringify(payload),
     });
 
     return result;
@@ -1094,7 +1105,7 @@ export const sendOTP = async (email,cause) => {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email_address: email,cause: cause }),
+    body: JSON.stringify({ email_address: email,cause }),
   });
   
   if (!response.ok) {
@@ -1125,6 +1136,4 @@ export const resetPassword = async (email, otp, newPassword) => {
   }
   
   return response.json();
-
 };
-
