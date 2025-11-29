@@ -15,9 +15,12 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
   const [errors, setErrors] = useState({});
 
   // Calculate payment details
+  const totalAmount = booking?.total_amount || 0;
+  const concessionAmount = booking?.concession_amount || 0;
+  const totalAmountPaid = booking?.total_amount_paid || 0;
   const pendingBalance = booking?.pending_balance || 0;
   const minPayment = 1; // Any amount greater than 0 is allowed
-  const maxPayment = pendingBalance;
+  const maxPayment = pendingBalance; // Can't pay more than pending balance
 
   const validatePayment = () => {
     const newErrors = {};
@@ -128,11 +131,15 @@ const PayUPayment = ({ booking, onPaymentInitiated, isOpen, onClose }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Amount:</span>
-              <span className="font-semibold">₹{(booking.total_amount || 0).toLocaleString()}</span>
+              <span className="font-semibold">₹{totalAmount.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Concession Amount:</span>
+              <span className="text-blue-600">₹{concessionAmount.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Amount Paid:</span>
-              <span className="text-green-600">₹{(booking.total_amount_paid || 0).toLocaleString()}</span>
+              <span className="text-green-600">₹{totalAmountPaid.toLocaleString()}</span>
             </div>
             <div className="flex justify-between border-t pt-2">
               <span className="text-gray-600 font-medium">Pending Balance:</span>
