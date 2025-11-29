@@ -28,7 +28,7 @@ const StudentManagement = () => {
 
   // Debug logging
   useEffect(() => {
-  
+
   }, [students]);
 
   // Fetch students if the list is empty
@@ -50,7 +50,7 @@ const StudentManagement = () => {
   }, [students.length]);
 
   const filteredStudents = useMemo(() => {
-   
+
     if (!Array.isArray(students)) {
       console.warn('⚠️ Students is not an array:', students);
       return [];
@@ -92,7 +92,7 @@ const StudentManagement = () => {
       }
 
       // Debug log for each student
-      
+
 
       return searchMatch && branchMatch && yearMatch && genderMatch;
     });
@@ -162,7 +162,10 @@ const StudentManagement = () => {
       gender: student.gender || student.Gender || '',
       email_address: student.email_address || student.email || '',
       mobile_number: student.mobile_number || student.mobile || student.phone || '',
-      status: student.status || 'active'
+      status: student.status || 'active',
+      room_number: student.booked_room_number || '',
+      cot_number: student.booked_cot_number || '',
+      custom_price: student.custom_price || student.concession_amount || ''
     });
     setIsEditModalOpen(true);
   };
@@ -396,6 +399,33 @@ const StudentManagement = () => {
               <option value="inactive">Inactive</option>
               <option value="suspended">Suspended</option>
             </Select>
+          </div>
+
+          {/* Booking Information Section */}
+          <div className="border-t pt-4 mt-4">
+            <h3 className="text-md font-semibold text-text-dark mb-3">Booking Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Room & Cot Number"
+                name="room_cot_info"
+                value={editFormData.room_number && editFormData.cot_number
+                  ? `Room ${editFormData.room_number} - Cot ${editFormData.cot_number}`
+                  : 'No booking assigned'}
+                disabled
+                placeholder="Room & Cot info"
+              />
+              <Input
+                label="Custom Price (Concession)"
+                name="custom_price"
+                type="number"
+                value={editFormData.custom_price || ''}
+                onChange={handleEditFormChange}
+                placeholder="Enter custom price for this student"
+              />
+            </div>
+            <p className="text-xs text-text-medium mt-2">
+              Note: Custom price will be reflected in the student's booking as a concession, affecting their remaining balance.
+            </p>
           </div>
 
           <div className="flex justify-end gap-4 pt-4">
