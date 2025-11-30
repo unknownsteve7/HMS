@@ -283,7 +283,7 @@ const StudentManagement = () => {
               <TableCell>{student.registrationNumber || student.Registration_number || 'N/A'}</TableCell>
               <TableCell>{student.Branch || student.department || 'N/A'}</TableCell>
               <TableCell>{student.Year || student.academic_year || 'N/A'}</TableCell>
-              <TableCell>{student.gender || student.Gender || 'N/A'}</TableCell>
+              <TableCell>{student.gender || student.Gender || student.sex || 'N/A'}</TableCell>
               <TableCell>{student.email_address || 'N/A'}</TableCell>
               <TableCell>{student.mobile_number || student.phone || 'N/A'}</TableCell>
               <TableCell><StatusTag status={student.status || 'active'} /></TableCell>
