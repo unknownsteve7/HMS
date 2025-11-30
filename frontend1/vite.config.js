@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
-import tailwindcss from '@tailwindcss/vite'
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -13,7 +12,6 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.json'],
   },
   plugins: [
-    tailwindcss(),
     react(),
     {
       name: 'spa-fallback',
@@ -77,3 +75,4 @@ export default defineConfig({
     },
   },
 });
+
