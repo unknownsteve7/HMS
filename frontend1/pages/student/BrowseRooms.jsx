@@ -39,7 +39,7 @@ const BrowseRooms = () => {
 
     // Debounced filters to prevent too many re-renders
     const [filters, setFilters] = useState(filterState);
-    
+
     // Handle filter changes with debouncing
     const handleFilterChange = useCallback((update) => {
         setFilterState(prev => {
@@ -53,9 +53,9 @@ const BrowseRooms = () => {
         const debouncedUpdate = debounce((state) => {
             setFilters(state);
         }, 300);
-        
+
         debouncedUpdate(filterState);
-        
+
         // Cleanup
         return () => {
             debouncedUpdate.cancel();
@@ -119,7 +119,7 @@ const BrowseRooms = () => {
             const normalizedSelectedFacilities = filters.facilities
                 .filter(Boolean)
                 .map(f => f.toString().toLowerCase().trim());
-            
+
             filtered = filtered.filter(room => {
                 // Get all facility names from the room, handling different data structures
                 const roomFacilities = (room.facilities || []).map(f => {
@@ -128,10 +128,10 @@ const BrowseRooms = () => {
                     if (typeof f === 'object') return (f.name || f.facility_name || '').toString().toLowerCase().trim();
                     return '';
                 }).filter(Boolean);
-                
-                // Check if any of the room's facilities match any of the selected filters
-                return roomFacilities.some(roomFacility => 
-                    normalizedSelectedFacilities.includes(roomFacility)
+
+                // Check if ALL selected facilities are present in the room (AND condition)
+                return normalizedSelectedFacilities.every(selectedFacility =>
+                    roomFacilities.includes(selectedFacility)
                 );
             });
         }
