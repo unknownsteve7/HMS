@@ -235,45 +235,60 @@ const RoomManagement = () => {
     try {
       // Get total capacity for this room
       let totalCapacity = 0;
-
-      if (room.total_cots && typeof room.total_cots === 'number') {
-        totalCapacity = room.total_cots;
-      } else if (Array.isArray(room.cots)) {
-        totalCapacity = room.cots.length;
-      } else if (room.totalCots && typeof room.totalCots === 'number') {
-        totalCapacity = room.totalCots;
-      } else if (room.capacity && typeof room.capacity === 'number') {
-        totalCapacity = room.capacity;
-      } else {
-        // Default assumption for hostel rooms
-        totalCapacity = 4;
-      }
-
-      // Calculate occupied cots from bookings for this specific room
       let occupiedCots = 0;
 
-      if (Array.isArray(bookings)) {
-        const roomId = room.id || room.room_id || room._id;
+      // First priority: Use cots array if available (most accurate)
+      if (Array.isArray(room.cots) && room.cots.length > 0) {
+        totalCapacity = room.cots.length;
+        // Count occupied cots based on cot status
+        occupiedCots = room.cots.filter(cot =>
+          cot && cot.status &&
+          (cot.status.toLowerCase() === 'occupied' ||
+            cot.status.toLowerCase() === 'booked' ||
+            cot.status.toLowerCase() === 'reserved')
+        ).length;
+      } else {
+        // Fallback: Use total_cots or totalCots field
+        if (room.total_cots && typeof room.total_cots === 'number') {
+          totalCapacity = room.total_cots;
+        } else if (room.totalCots && typeof room.totalCots === 'number') {
+          totalCapacity = room.totalCots;
+        } else if (room.capacity && typeof room.capacity === 'number') {
+          totalCapacity = room.capacity;
+        } else {
+          totalCapacity = 4;
+        }
 
-        // Count active bookings for this room
-        const activeBookingsForRoom = bookings.filter(booking => {
-          if (!booking) return false;
+        // Calculate occupied cots from bookings as fallback
+        if (Array.isArray(bookings) && bookings.length > 0) {
+          const roomId = room.id || room.room_id || room._id;
+          const roomNumber = room.roomNumber || room.room_number || room.number;
 
-          // Check if booking is for this room
-          const bookingRoomId = booking.roomId || booking.room_id || booking.room;
-          const isForThisRoom = bookingRoomId === roomId || bookingRoomId === room.room_number;
+          const activeBookingsForRoom = bookings.filter(booking => {
+            if (!booking) return false;
 
-          // Check if booking is active
-          const isActiveBooking = booking.status === 'Active' ||
-            booking.status === 'Pending Check-in' ||
-            booking.status === 'active' ||
-            booking.status === 'confirmed' ||
-            booking.status === 'Confirmed';
+            const bookingRoomId = booking.roomId || booking.room_id || booking.room;
+            const bookingRoomNumber = booking.room_number || booking.roomNumber || booking.room?.room_number;
 
-          return isForThisRoom && isActiveBooking;
-        });
+            const isForThisRoom =
+              bookingRoomId === roomId ||
+              bookingRoomId === roomNumber ||
+              bookingRoomNumber === roomNumber ||
+              (booking.room && typeof booking.room === 'object' &&
+                (booking.room._id === roomId || booking.room.id === roomId ||
+                  booking.room.room_number === roomNumber || booking.room.roomNumber === roomNumber));
 
-        occupiedCots = activeBookingsForRoom.length;
+            const isActiveBooking = booking.status === 'Active' ||
+              booking.status === 'Pending Check-in' ||
+              booking.status === 'active' ||
+              booking.status === 'confirmed' ||
+              booking.status === 'Confirmed';
+
+            return isForThisRoom && isActiveBooking;
+          });
+
+          occupiedCots = activeBookingsForRoom.length;
+        }
       }
 
       const availableCots = Math.max(0, totalCapacity - occupiedCots);
