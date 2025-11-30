@@ -368,12 +368,17 @@ const BookingManagement = () => {
           <Card>
             <Table headers={['Booking Ref', 'Student', 'Room/Cot', 'Check-in', 'Status']}>
               {(bookings || []).map((booking) => {
-                const room = getRoomById(booking.roomId);
+                // Get room number - check direct property first, then lookup
+                const roomNumber = booking.room_number || booking.room?.room_number || getRoomById(booking.roomId)?.room_number || 'N/A';
+                const cotNumber = booking.cot_number || booking.cotNumber || 'N/A';
+                // Get student name - check direct property first, then lookup
+                const studentName = booking.full_name || booking.student?.full_name || getStudentNameById(booking.studentId);
+
                 return (
                   <TableRow key={booking.id || booking.booking_id}>
                     <TableCell className="font-mono text-xs">{booking.booking_id || booking.id}</TableCell>
-                    <TableCell>{getStudentNameById(booking.studentId)}</TableCell>
-                    <TableCell>{room ? `${room.room_number || room.roomNumber} / ${booking.cot_number || booking.cotNumber}` : 'N/A'}</TableCell>
+                    <TableCell>{studentName}</TableCell>
+                    <TableCell>{`${roomNumber} / ${cotNumber}`}</TableCell>
                     <TableCell>{formatDate(booking.check_in_date || booking.checkInDate)}</TableCell>
                     <TableCell><StatusTag status={booking.status || 'Pending'} /></TableCell>
                   </TableRow>
