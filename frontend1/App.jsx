@@ -11,6 +11,9 @@ import Header from './components/layout/Header';
 import PageWrapper from './components/layout/PageWrapper';
 import StudentLayout from './components/student/StudentLayout';
 
+// Maintenance Mode
+import MaintenanceMode from './pages/MaintenanceMode';
+
 // Auth Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -31,6 +34,9 @@ import BrowseRooms from './pages/student/BrowseRooms';
 import BookRoom from './pages/student/BookRoom';
 import MyBookings from './pages/student/MyBookings';
 import PaymentHistory from './pages/student/PaymentHistory';
+
+// Maintenance Mode Flag - Set to true to enable maintenance mode
+const MAINTENANCE_MODE = true;
 
 // Simple test component to verify rendering
 const TestComponent = () => (
@@ -169,6 +175,10 @@ const AppContent = () => {
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 const App = () => {
+  // Check maintenance mode first - before any routing
+  if (MAINTENANCE_MODE) {
+    return <MaintenanceMode />;
+  }
 
   try {
     return (
